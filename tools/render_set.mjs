@@ -1,6 +1,7 @@
 // Rendert Vorschaubilder aller Kamera-Presets und exportiert das Set als GLB.
 //
 //   node tools/render_set.mjs [scene-dir] [--w 1920 --h 1080] [--no-glb] [--placeholders 0|1]
+//                             [--pixel 0|1] [--lowres 270]
 //
 // Ausgabe: <scene-dir>/previews/*.png und <scene-dir>/export/<name>.glb
 import { chromium } from 'playwright';
@@ -14,6 +15,8 @@ const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const sceneDir = args.find((a) => !a.startsWith('--') && !/^\d+$/.test(a)) || 'scenes/cafe-ocean-drive';
 const W = +opt('--w', 1920), H = +opt('--h', 1080);
 const placeholders = opt('--placeholders', '1');
+const pixel = opt('--pixel', '1');
+const lowres = opt('--lowres', '270');
 
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json' };
 const server = http.createServer((req, res) => {
@@ -29,7 +32,7 @@ const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--ena
 const page = await browser.newPage({ viewport: { width: W, height: H } });
 page.on('console', (m) => m.type() === 'error' && console.error('[page]', m.text()));
 page.on('pageerror', (e) => console.error('[page error]', e.message));
-await page.goto(`http://localhost:${port}/${sceneDir}/index.html?hud=0&t=2&w=${W}&h=${H}&placeholders=${placeholders}`);
+await page.goto(`http://localhost:${port}/${sceneDir}/index.html?hud=0&t=2&w=${W}&h=${H}&placeholders=${placeholders}&pixel=${pixel}&lowres=${lowres}`);
 await page.waitForFunction(() => window.__ready, null, { timeout: 120000 });
 
 const camNames = await page.evaluate(async () => Object.keys((await import('./scene.js')).CAMERAS));

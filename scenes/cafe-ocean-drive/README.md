@@ -27,6 +27,18 @@ npm run serve
 Oben links: Kamera-Presets, Platzhalter-Figuren ein/aus, GLB-Export.
 URL-Parameter: `?cam=twoShot&hud=0&placeholders=0&t=3&w=1920&h=1080`
 
+## Pixel-Look (unser Stil)
+
+Standardmäßig an: Die Szene wird mit ~270 Pixelzeilen gerendert und scharf
+(nearest neighbour) hochskaliert, mit dezenten Konturen und leicht
+reduzierter Farbpalette.
+
+- `?pixel=0` – aus (glatter Look)
+- `?lowres=270` – Pixelauflösung; kleiner = gröber (z. B. `200`), größer = feiner (z. B. `360`)
+- `?levels=28` – Farbstufen pro Kanal; kleiner = stärker posterisiert
+
+Beim Render-Skript: `--pixel 0|1`, `--lowres 270`.
+
 ## Kamera-Presets (`CAMERAS` in `scene.js`)
 
 `aerial`, `establishing`, `street`, `terrace`, `twoShot`, `otsA`, `otsB`,

@@ -28,6 +28,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { buildScene, CAMERAS } from './scene.js';
 
 const params = new URLSearchParams(location.search);
@@ -54,6 +58,39 @@ const camera = new THREE.PerspectiveCamera(40, W / H, 0.05, 1200);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
+// ---- Pixel-Look: niedrige Renderauflösung, scharf hochskaliert,
+// dezente Konturen und leicht reduzierte Farbpalette.
+//   ?pixel=0       -> aus
+//   ?lowres=270    -> vertikale Pixelauflösung (kleiner = gröber)
+//   ?levels=28     -> Farbstufen pro Kanal (kleiner = stärker posterisiert)
+let pixelOn = params.get('pixel') !== '0';
+const lowRes = +params.get('lowres') || 270;
+const composer = new EffectComposer(renderer);
+const pixelPass = new RenderPixelatedPass(1, scene, camera, { normalEdgeStrength: 0.25, depthEdgeStrength: 0.35 });
+composer.addPass(pixelPass);
+composer.addPass(new OutputPass());
+const paletteShader = {
+  uniforms: { tDiffuse: { value: null }, levels: { value: +params.get('levels') || 28 }, saturation: { value: 1.12 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float levels; uniform float saturation; varying vec2 vUv;
+    void main(){
+      vec4 c = texture2D(tDiffuse, vUv);
+      float l = dot(c.rgb, vec3(0.299,0.587,0.114));
+      c.rgb = mix(vec3(l), c.rgb, saturation);
+      c.rgb = floor(c.rgb * levels + 0.5) / levels;
+      gl_FragColor = c;
+    }`,
+};
+const palettePass = new ShaderPass(paletteShader);
+composer.addPass(palettePass);
+function resizePixel(w, h) {
+  composer.setPixelRatio(renderer.getPixelRatio());
+  composer.setSize(w, h);
+  pixelPass.setPixelSize(Math.max(1, Math.round((h * renderer.getPixelRatio()) / lowRes)));
+}
+resizePixel(W, H);
+
 function setCamera(name) {
   const c = CAMERAS[name];
   if (!c) return;
@@ -79,6 +116,10 @@ const toggle = document.createElement('button');
 toggle.textContent = 'Figuren ein/aus';
 toggle.onclick = () => (actors.visible = !actors.visible);
 hud.appendChild(toggle);
+const pix = document.createElement('button');
+pix.textContent = 'Pixel-Look ein/aus';
+pix.onclick = () => (pixelOn = !pixelOn);
+hud.appendChild(pix);
 const exp = document.createElement('button');
 exp.textContent = 'GLB exportieren';
 exp.onclick = async () => {
@@ -101,6 +142,7 @@ addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  resizePixel(innerWidth, innerHeight);
 });
 
 // Für Offline-Rendering: feste Zeit pro Frame statt Echtzeit
@@ -111,7 +153,8 @@ function frame() {
   if (!fixed) t += clock.getDelta();
   update(t);
   controls.update();
-  renderer.render(scene, camera);
+  if (pixelOn) composer.render();
+  else renderer.render(scene, camera);
 }
 renderer.setAnimationLoop(fixed ? null : frame);
 if (fixed) frame();

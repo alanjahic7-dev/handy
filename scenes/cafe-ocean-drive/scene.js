@@ -866,7 +866,7 @@ function makeFlowerVase() {
     new THREE.MeshPhysicalMaterial({ color: '#bfeee6', roughness: 0.05, transmission: 0.6, thickness: 0.02, transparent: true, opacity: 0.8 })
   );
   g.add(vase);
-  const stem = cyl(0.002, 0.002, 0.14, mat('#3d7a2a'), 6);
+  const stem = cyl(0.005, 0.005, 0.14, mat('#3d7a2a'), 6);
   stem.position.y = 0.16;
   g.add(stem);
   const petalM = mat(PAL.coral, { roughness: 0.6 });
