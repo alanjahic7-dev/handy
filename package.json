@@ -1,0 +1,23 @@
+{
+  "name": "handy-video-sets",
+  "version": "1.0.0",
+  "description": "3D-Sets für Charakter-Videos",
+  "scripts": {
+    "serve": "http-server . -p 8080 -c-1",
+    "render:cafe": "node tools/render_set.mjs scenes/cafe-ocean-drive"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alanjahic7-dev/handy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alanjahic7-dev/handy/issues"
+  },
+  "homepage": "https://github.com/alanjahic7-dev/handy#readme",
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

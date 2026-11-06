@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Café am Ocean Drive – 3D-Set</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: system-ui, sans-serif; }
+  canvas { display: block; }
+  #hud { position: fixed; top: 10px; left: 10px; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 20px); }
+  #hud button { background: rgba(20,20,30,.72); color: #fff; border: 1px solid rgba(255,255,255,.25); border-radius: 6px; padding: 6px 10px; font-size: 13px; cursor: pointer; }
+  #hud button.active { background: #ff3fa4; border-color: #ff3fa4; }
+  #label { position: fixed; bottom: 12px; left: 12px; color: #fff; text-shadow: 0 1px 3px #000; font-size: 14px; }
+  body.clean #hud, body.clean #label { display: none; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "../../node_modules/three/build/three.module.js",
+  "three/addons/": "../../node_modules/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="hud"></div>
+<div id="label"></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { buildScene, CAMERAS } from './scene.js';
+
+const params = new URLSearchParams(location.search);
+const clean = params.get('hud') === '0';
+if (clean) document.body.classList.add('clean');
+const W = +params.get('w') || innerWidth;
+const H = +params.get('h') || innerHeight;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(params.get('w') ? 1 : Math.min(devicePixelRatio, 2));
+renderer.setSize(W, H);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const { scene, update, actors } = buildScene({ placeholders: params.get('placeholders') !== '0' });
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.3;
+const camera = new THREE.PerspectiveCamera(40, W / H, 0.05, 1200);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+function setCamera(name) {
+  const c = CAMERAS[name];
+  if (!c) return;
+  camera.position.set(...c.pos);
+  controls.target.set(...c.target);
+  camera.fov = c.fov;
+  camera.updateProjectionMatrix();
+  controls.update();
+  document.getElementById('label').textContent = c.label;
+  document.querySelectorAll('#hud button').forEach((b) => b.classList.toggle('active', b.dataset.cam === name));
+}
+
+const hud = document.getElementById('hud');
+for (const [name, c] of Object.entries(CAMERAS)) {
+  const b = document.createElement('button');
+  b.textContent = name;
+  b.title = c.label;
+  b.dataset.cam = name;
+  b.onclick = () => setCamera(name);
+  hud.appendChild(b);
+}
+const toggle = document.createElement('button');
+toggle.textContent = 'Figuren ein/aus';
+toggle.onclick = () => (actors.visible = !actors.visible);
+hud.appendChild(toggle);
+const exp = document.createElement('button');
+exp.textContent = 'GLB exportieren';
+exp.onclick = async () => {
+  const buf = await exportGLB();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
+  a.download = 'cafe_ocean_drive.glb';
+  a.click();
+};
+hud.appendChild(exp);
+
+async function exportGLB() {
+  return new GLTFExporter().parseAsync(scene, { binary: true, onlyVisible: true, maxTextureSize: 1024 });
+}
+
+setCamera(params.get('cam') || 'establishing');
+
+addEventListener('resize', () => {
+  if (params.get('w')) return;
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// Für Offline-Rendering: feste Zeit pro Frame statt Echtzeit
+const fixed = params.has('t');
+let t = +(params.get('t') || 0);
+const clock = new THREE.Clock();
+function frame() {
+  if (!fixed) t += clock.getDelta();
+  update(t);
+  controls.update();
+  renderer.render(scene, camera);
+}
+renderer.setAnimationLoop(fixed ? null : frame);
+if (fixed) frame();
+
+window.__set = {
+  setCamera,
+  renderAt(time, camName) { t = time; if (camName) setCamera(camName); frame(); },
+  exportGLB: async () => { const b = await exportGLB(); return Array.from(new Uint8Array(b)); },
+  showPlaceholders: (v) => { actors.visible = v; },
+  camera, controls, scene,
+};
+window.__ready = true;
+</script>
+</body>
+</html>
