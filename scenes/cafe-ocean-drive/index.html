@@ -32,13 +32,15 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { buildScene, CAMERAS } from './scene.js';
+import { buildScene, CAMERAS as CAM_PORTRAIT, CAMERAS_WIDE } from './scene.js';
 
 const params = new URLSearchParams(location.search);
 const clean = params.get('hud') === '0';
 if (clean) document.body.classList.add('clean');
 const W = +params.get('w') || innerWidth;
 const H = +params.get('h') || innerHeight;
+// Hochformat (9:16) nutzt die Vice-Files-Kameras, Querformat die breiten Presets
+const CAMERAS = W / H < 1 ? CAM_PORTRAIT : CAMERAS_WIDE;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(params.get('w') ? 1 : Math.min(devicePixelRatio, 2));
@@ -46,14 +48,14 @@ renderer.setSize(W, H);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.95;
+renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
 const { scene, update, actors } = buildScene({ placeholders: params.get('placeholders') !== '0' });
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-scene.environmentIntensity = 0.3;
+scene.environmentIntensity = 0.08;
 const camera = new THREE.PerspectiveCamera(40, W / H, 0.05, 1200);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -64,21 +66,23 @@ controls.enableDamping = true;
 //   ?lowres=270    -> vertikale Pixelauflösung (kleiner = gröber)
 //   ?levels=28     -> Farbstufen pro Kanal (kleiner = stärker posterisiert)
 let pixelOn = params.get('pixel') !== '0';
-const lowRes = +params.get('lowres') || 270;
+const lowRes = +params.get('lowres') || 300;
 const composer = new EffectComposer(renderer);
-const pixelPass = new RenderPixelatedPass(1, scene, camera, { normalEdgeStrength: 0.25, depthEdgeStrength: 0.35 });
+const pixelPass = new RenderPixelatedPass(1, scene, camera, { normalEdgeStrength: 0.15, depthEdgeStrength: 0.25 });
 composer.addPass(pixelPass);
 composer.addPass(new OutputPass());
 const paletteShader = {
-  uniforms: { tDiffuse: { value: null }, levels: { value: +params.get('levels') || 28 }, saturation: { value: 1.12 } },
+  uniforms: { tDiffuse: { value: null }, levels: { value: +params.get('levels') || 24 }, saturation: { value: 1.15 }, vignette: { value: +(params.get('vignette') ?? 0.55) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float levels; uniform float saturation; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float levels; uniform float saturation; uniform float vignette; varying vec2 vUv;
     void main(){
       vec4 c = texture2D(tDiffuse, vUv);
       float l = dot(c.rgb, vec3(0.299,0.587,0.114));
       c.rgb = mix(vec3(l), c.rgb, saturation);
       c.rgb = floor(c.rgb * levels + 0.5) / levels;
+      vec2 d = (vUv - 0.5) * vec2(1.0, 1.25);
+      c.rgb *= mix(1.0, smoothstep(0.85, 0.2, length(d)), vignette);
       gl_FragColor = c;
     }`,
 };

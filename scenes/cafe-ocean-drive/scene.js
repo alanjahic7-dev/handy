@@ -10,6 +10,7 @@
 // nach +x, Figur B sitzt rechts (+x) und schaut nach -x.
 
 import * as THREE from 'three';
+import { makeGirl, makeDetective } from './characters.js';
 
 // ---------------------------------------------------------------- utilities
 function rng(seed) {
@@ -26,7 +27,7 @@ const rand = rng(1985);
 const R = (a, b) => a + (b - a) * rand();
 
 function mat(color, opts = {}) {
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0, ...opts });
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0, flatShading: true, ...opts });
 }
 
 function shadow(obj, cast = true, receive = true) {
@@ -45,7 +46,7 @@ function box(w, h, d, material, x = 0, y = 0, z = 0) {
   return m;
 }
 
-function cyl(rt, rb, h, material, seg = 24) {
+function cyl(rt, rb, h, material, seg = 10) {
   return new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), material);
 }
 
@@ -113,7 +114,21 @@ export const ANCHORS = {
   eyeB: new THREE.Vector3(0.5, 1.22, -3.2),
 };
 
+// Hochformat 9:16 (Standard, wie die bisherigen Videos)
 export const CAMERAS = {
+  establishing: { pos: [0.8, 1.9, 6.6], target: [0, 3.9, -5], fov: 64, label: 'Totale – Café bei Nacht von der Straße' },
+  aerial: { pos: [-9, 17, 42], target: [0, 3, -4], fov: 52, label: 'Luftaufnahme – Strand, Park, Ocean Drive' },
+  terrace: { pos: [0.3, 1.55, 1.6], target: [0, 1.25, -3.6], fov: 56, label: 'Halbtotale – Terrasse' },
+  twoShot: { pos: [0, 1.3, -0.6], target: [0, 1.02, -3.2], fov: 66, label: 'Two-Shot – beide im Profil' },
+  otsA: { pos: [-1.45, 1.5, -2.7], target: [0.58, 1.1, -3.3], fov: 46, label: 'Über die Schulter von A auf B' },
+  otsB: { pos: [1.45, 1.5, -2.7], target: [-0.58, 1.1, -3.3], fov: 46, label: 'Über die Schulter von B auf A' },
+  closeA: { pos: [0.6, 1.35, -1.7], target: [-0.58, 0.98, -3.2], fov: 40, label: 'Nah – Figur A' },
+  closeB: { pos: [-0.6, 1.4, -1.7], target: [0.58, 1.02, -3.2], fov: 40, label: 'Nah – Figur B' },
+  tableInsert: { pos: [0.22, 1.18, -2.65], target: [0, 0.8, -3.2], fov: 46, label: 'Insert – Kaffee & Laterne' },
+  oceanView: { pos: [0, 1.5, -5.9], target: [0, 2.6, 12], fov: 64, label: 'Von hinten – Blick aufs Meer & Mond' },
+};
+
+export const CAMERAS_WIDE = {
   aerial: { pos: [-14, 16, 52], target: [0, 2, -3], fov: 38, label: 'Luftaufnahme – Strand, Park und Ocean Drive' },
   establishing: { pos: [9.5, 7.5, 24], target: [0, 3.2, -4], fov: 40, label: 'Totale – Ocean Drive vom Park' },
   street: { pos: [-7.5, 1.7, 4.5], target: [0, 1.4, -3.4], fov: 42, label: 'Straßenseite – Terrasse' },
@@ -128,19 +143,40 @@ export const CAMERAS = {
 };
 
 // ---------------------------------------------------------------- sky
+export const MOON_POS = new THREE.Vector3(-60, 110, 300);
+
+function glowTexture() {
+  return canvasTexture(64, 64, (ctx, w, h) => {
+    const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.25, 'rgba(255,255,255,0.45)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  });
+}
+let _glow;
+export function glow(color, size, opacity = 0.6) {
+  _glow ||= glowTexture();
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: _glow, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false }));
+  s.scale.set(size, size, 1);
+  s.name = 'Glow';
+  return s;
+}
+
 function buildSky(scene) {
-  const geo = new THREE.SphereGeometry(400, 48, 24);
-  const top = new THREE.Color('#3c8fd8');
-  const mid = new THREE.Color('#9fd0f2');
-  const horizon = new THREE.Color('#ffe2c4');
+  const geo = new THREE.SphereGeometry(400, 32, 24);
+  const top = new THREE.Color('#0b0a22');
+  const mid = new THREE.Color('#1d1640');
+  const horizon = new THREE.Color('#3c2160');
   const colors = [];
   const p = geo.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const y = p.getY(i) / 400;
     const c = new THREE.Color();
     if (y < 0) c.copy(horizon);
-    else if (y < 0.18) c.lerpColors(horizon, mid, y / 0.18);
-    else c.lerpColors(mid, top, Math.min(1, (y - 0.18) / 0.6));
+    else if (y < 0.12) c.lerpColors(horizon, mid, y / 0.12);
+    else c.lerpColors(mid, top, Math.min(1, (y - 0.12) / 0.5));
     colors.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -148,29 +184,49 @@ function buildSky(scene) {
   sky.name = 'Sky';
   scene.add(sky);
 
-  // Wolken: weiche Sprites über dem Meer
-  const cloudTex = canvasTexture(256, 128, (ctx, w, h) => {
+  // Sterne
+  const starPos = [];
+  for (let i = 0; i < 900; i++) {
+    const th = R(0, Math.PI * 2), y = R(0.08, 1);
+    const r = Math.sqrt(1 - y * y);
+    starPos.push(Math.cos(th) * r * 380, y * 380, Math.sin(th) * r * 380);
+  }
+  const sg = new THREE.BufferGeometry();
+  sg.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+  const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: '#ffffff', size: 2.2, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.9 }));
+  stars.name = 'Stars';
+  scene.add(stars);
+
+  // Mond mit Lichthof
+  const moon = new THREE.Mesh(new THREE.CircleGeometry(14, 20), new THREE.MeshBasicMaterial({ color: '#e9e6f2', fog: false, toneMapped: false }));
+  moon.position.copy(MOON_POS);
+  moon.lookAt(0, 0, 0);
+  moon.name = 'Moon';
+  scene.add(moon);
+  const halo = glow('#8f86d8', 90, 0.5);
+  halo.position.copy(MOON_POS).multiplyScalar(1.01);
+  scene.add(halo);
+
+  // dunkle Nachtwolken
+  const cloudTex = canvasTexture(256, 128, (ctx) => {
     for (let i = 0; i < 14; i++) {
       const x = R(50, 206), y = R(50, 90), r = R(25, 50);
       const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, 'rgba(255,255,255,0.9)');
-      g.addColorStop(1, 'rgba(255,255,255,0)');
+      g.addColorStop(0, 'rgba(120,100,190,0.6)');
+      g.addColorStop(1, 'rgba(120,100,190,0)');
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
     }
   });
-  const clouds = new THREE.Group();
-  clouds.name = 'Clouds';
-  for (let i = 0; i < 12; i++) {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: R(0.55, 0.9) }));
-    const w = R(40, 90);
-    s.scale.set(w, w * 0.4, 1);
-    s.position.set(R(-180, 180), R(35, 80), R(120, 300));
-    clouds.add(s);
+  for (let i = 0; i < 8; i++) {
+    const c = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: R(0.25, 0.45) }));
+    const w = R(60, 110);
+    c.scale.set(w, w * 0.3, 1);
+    c.position.set(R(-200, 200), R(30, 60), R(180, 320));
+    scene.add(c);
   }
-  scene.add(clouds);
 }
 
 // ---------------------------------------------------------------- ground
@@ -270,12 +326,12 @@ function buildGround(scene) {
 // ---------------------------------------------------------------- ocean
 function buildOcean(scene) {
   const w = 600, d = 400;
-  const geo = new THREE.PlaneGeometry(w, d, 160, 90);
+  const geo = new THREE.PlaneGeometry(w, d, 120, 60);
   geo.rotateX(-Math.PI / 2);
   const base = Float32Array.from(geo.attributes.position.array);
   const colors = [];
-  const shallow = new THREE.Color('#3fd0c9');
-  const deep = new THREE.Color('#0e5f9c');
+  const shallow = new THREE.Color('#1d3a6a');
+  const deep = new THREE.Color('#0a1236');
   const p = geo.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const z = p.getZ(i) + d / 2; // 0 = Ufer
@@ -286,7 +342,7 @@ function buildOcean(scene) {
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   const ocean = new THREE.Mesh(
     geo,
-    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.18, metalness: 0.1, transparent: true, opacity: 0.94 })
+    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.2, flatShading: true })
   );
   ocean.position.set(0, -0.55, LAYOUT.shoreZ + d / 2 - 6);
   ocean.name = 'Ocean';
@@ -296,11 +352,28 @@ function buildOcean(scene) {
   // Schaumkante an der Brandung
   const foam = new THREE.Mesh(
     new THREE.PlaneGeometry(600, 2.2, 200, 1).rotateX(-Math.PI / 2),
-    new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, roughness: 0.6 })
+    new THREE.MeshStandardMaterial({ color: '#b9b4ff', transparent: true, opacity: 0.35, roughness: 0.6 })
   );
   foam.position.set(0, -0.5, LAYOUT.shoreZ - 4.6);
   foam.name = 'Foam';
   scene.add(foam);
+
+  // Mondlicht-Streifen auf dem Wasser
+  const streakTex = canvasTexture(32, 256, (ctx, w, h) => {
+    for (let y = 0; y < h; y += 6) {
+      const a = 0.15 + 0.6 * (y / h);
+      const ww = R(4, w) * (0.3 + 0.7 * y / h);
+      ctx.fillStyle = `rgba(230,225,255,${a})`;
+      ctx.fillRect((w - ww) / 2, y, ww, 3);
+    }
+  });
+  const streak = new THREE.Mesh(new THREE.PlaneGeometry(14, 250), new THREE.MeshBasicMaterial({ map: streakTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: 0.7 }));
+  streak.rotation.x = -Math.PI / 2;
+  const dir = new THREE.Vector2(-60, 300).normalize();
+  streak.rotation.z = Math.atan2(dir.x, dir.y);
+  streak.position.set(dir.x * 140, -0.25, LAYOUT.shoreZ + dir.y * 125);
+  streak.name = 'MoonReflection';
+  scene.add(streak);
 
   return (t) => {
     const a = p.array;
@@ -380,7 +453,7 @@ function makePalm(height = 8, lean = 0.6, seed = 0) {
       ctx.fillRect(0, y, w, 3);
     }
   }, { repeat: [1, height * 1.2] });
-  const trunk = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.17, 10, false), mat('#ffffff', { map: barkTex, roughness: 1 }));
+  const trunk = new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.17, 6, false), mat('#ffffff', { map: barkTex, roughness: 1 }));
   g.add(trunk);
   const top = curve.getPoint(1);
   const crown = new THREE.Group();
@@ -424,7 +497,7 @@ function signTexture(text, color, { w = 1024, h = 256, font = 'italic 700 150px 
 
 function verticalSignTexture(text, color) {
   return canvasTexture(256, 1024, (ctx, w, h) => {
-    ctx.fillStyle = '#fdfbf7';
+    ctx.fillStyle = '#20182c';
     ctx.fillRect(0, 0, w, h);
     ctx.font = '700 150px Futura, "Trebuchet MS", sans-serif';
     ctx.textAlign = 'center';
@@ -521,7 +594,10 @@ function makeDecoBuilding({ width, floors, color, accent, trim = PAL.white, name
   const wall = mat(color, { roughness: 0.85 });
   const accentM = mat(accent, { roughness: 0.7 });
   const trimM = mat(trim, { roughness: 0.6 });
-  const glass = new THREE.MeshStandardMaterial({ map: windowTexture(), roughness: 0.08, metalness: 0.3, color: '#ffffff' });
+  const glassDark = new THREE.MeshStandardMaterial({ color: '#1c1a3a', roughness: 0.2, metalness: 0.4 });
+  const glassWarm = new THREE.MeshStandardMaterial({ color: '#ffcf7a', emissive: '#ffb85c', emissiveIntensity: 0.9 });
+  const glassPink = new THREE.MeshStandardMaterial({ color: '#ff7ac0', emissive: '#ff5fae', emissiveIntensity: 0.7 });
+  const pickGlass = () => { const r = rand(); return r < 0.55 ? glassDark : r < 0.85 ? glassWarm : glassPink; };
 
   // Hauptkörper (Fassade bei z=0)
   if (cafe) {
@@ -551,7 +627,7 @@ function makeDecoBuilding({ width, floors, color, accent, trim = PAL.white, name
       const half = (cols - 1) / 2;
       let x = (c - half) * ((width - (tower ? 3.2 : 1.2)) / cols);
       if (tower) x += Math.sign(x || 1) * 1.0;
-      const win = box(winW, winH, 0.05, glass, x, y, 0.03);
+      const win = box(winW, winH, 0.05, pickGlass(), x, y, 0.03);
       g.add(win);
       g.add(box(winW + 0.5, 0.08, 0.6, trimM, x, y + winH / 2 + 0.12, 0.3)); // Eyebrow
       g.add(box(winW + 0.2, 0.1, 0.18, trimM, x, y - winH / 2 - 0.05, 0.09)); // Fensterbank
@@ -587,7 +663,14 @@ function makeDecoBuilding({ width, floors, color, accent, trim = PAL.white, name
       );
       sign.position.set(0, groundH + (H - groundH) / 2 + 0.5, 1.25);
       sign.name = 'VerticalSign';
+      sign.material[4].emissiveIntensity = 1.4;
       g.add(sign);
+      const sg = glow(signColor, 5, 0.35);
+      sg.position.set(0, sign.position.y, 1.6);
+      g.add(sg);
+      const sl = new THREE.PointLight(signColor, 3, 12, 1.8);
+      sl.position.set(0, sign.position.y - 1, 2.2);
+      g.add(sl);
     }
   }
 
@@ -631,7 +714,10 @@ function makeDecoBuilding({ width, floors, color, accent, trim = PAL.white, name
     neon.position.set(0, 4.75, 1.41);
     neon.name = 'NeonSign';
     g.add(neon);
-    const neonLight = new THREE.PointLight(PAL.neonPink, 4, 6, 2);
+    const ng = glow(PAL.neonPink, 7, 0.45);
+    ng.position.set(0, 4.75, 1.6);
+    g.add(ng);
+    const neonLight = new THREE.PointLight(PAL.neonPink, 4, 10, 1.8);
     neonLight.position.set(0, 4.6, 2.0);
     g.add(neonLight);
   } else {
@@ -640,7 +726,7 @@ function makeDecoBuilding({ width, floors, color, accent, trim = PAL.white, name
   }
   // Vordach-Gesims über Erdgeschoss
   g.add(box(width, 0.25, 1.4, trimM, 0, groundH - 0.25, 0.7));
-  g.add(box(width, 0.08, 0.06, mat(signColor || accent, { emissive: signColor || accent, emissiveIntensity: 0.6 }), 0, groundH - 0.38, 1.41));
+  g.add(box(width, 0.08, 0.06, mat(signColor || accent, { emissive: signColor || accent, emissiveIntensity: 1.6 }), 0, groundH - 0.38, 1.41));
 
   return shadow(g);
 }
@@ -929,9 +1015,15 @@ function makeStreetLamp() {
   const head = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.35, 0.3, 16), m);
   head.position.set(0, 4.75, 1.1);
   g.add(head);
-  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 8), new THREE.MeshStandardMaterial({ color: '#fff6dc', emissive: '#ffe9b0', emissiveIntensity: 0.6 }));
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshStandardMaterial({ color: '#fff6dc', emissive: '#ffd27a', emissiveIntensity: 3 }));
   bulb.position.set(0, 4.6, 1.1);
   g.add(bulb);
+  const lg = glow('#ffc670', 2.6, 0.55);
+  lg.position.set(0, 4.55, 1.1);
+  g.add(lg);
+  const light = new THREE.PointLight('#ffb35c', 8, 11, 1.6);
+  light.position.set(0, 4.3, 1.1);
+  g.add(light);
   return shadow(g);
 }
 
@@ -1079,20 +1171,21 @@ function makePlaceholderFigure(color, label) {
 export function buildScene({ placeholders = true } = {}) {
   const scene = new THREE.Scene();
   scene.name = 'CafeOceanDrive';
-  scene.fog = new THREE.Fog('#cfe6f5', 80, 330);
+  scene.fog = new THREE.Fog('#241a44', 40, 260);
 
   buildSky(scene);
   buildGround(scene);
   const updateOcean = buildOcean(scene);
 
   // Licht: warme Nachmittagssonne von Südosten über dem Meer
-  const hemi = new THREE.HemisphereLight('#cfe9ff', '#f1dfb8', 0.75);
+  const hemi = new THREE.HemisphereLight('#4a3c96', '#120a24', 0.6);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight('#fff1d6', 2.4);
-  sun.position.set(25, 32, 30);
+  // Mondlicht (kühl, von der Meerseite)
+  const sun = new THREE.DirectionalLight('#9c95ff', 0.9);
+  sun.position.set(-12, 30, 40);
   sun.target.position.set(0, 0, -3);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(4096, 4096);
+  sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.left = -30;
   sun.shadow.camera.right = 30;
   sun.shadow.camera.top = 30;
@@ -1101,7 +1194,7 @@ export function buildScene({ placeholders = true } = {}) {
   sun.shadow.camera.far = 120;
   sun.shadow.bias = -0.0003;
   sun.shadow.normalBias = 0.02;
-  sun.name = 'Sun';
+  sun.name = 'Moonlight';
   scene.add(sun, sun.target);
 
   // ---- Häuserzeile
@@ -1178,7 +1271,48 @@ export function buildScene({ placeholders = true } = {}) {
   const glass = cyl(0.03, 0.026, 0.11, new THREE.MeshPhysicalMaterial({ color: '#e8f7ff', roughness: 0.02, transmission: 0.9, thickness: 0.01, transparent: true, opacity: 0.45 }), 20);
   glass.position.set(0.12, ANCHORS.tableTopY + 0.055, -0.15);
   hero.add(glass);
+  // Tischlaterne – warmes Licht auf die Gesichter (wie das Lagerfeuer)
+  const lantern = new THREE.Group();
+  lantern.name = 'TableLantern';
+  lantern.add(box(0.08, 0.012, 0.08, mat('#2b2b2e'), 0, 0.006, 0));
+  lantern.add(box(0.08, 0.012, 0.08, mat('#2b2b2e'), 0, 0.13, 0));
+  lantern.add(box(0.064, 0.11, 0.064, new THREE.MeshStandardMaterial({ color: '#ffd38a', emissive: '#ffb04a', emissiveIntensity: 2.2, transparent: true, opacity: 0.85 }), 0, 0.068, 0));
+  const flame = box(0.02, 0.04, 0.02, new THREE.MeshBasicMaterial({ color: '#fff2c0', toneMapped: false }), 0, 0.05, 0);
+  lantern.add(flame);
+  const lglow = glow('#ffae4a', 0.9, 0.55);
+  lglow.position.y = 0.07;
+  lantern.add(lglow);
+  const lanternLight = new THREE.PointLight('#ffa040', 2.6, 3.2, 1.4);
+  lanternLight.position.y = 0.2;
+  lantern.add(lanternLight);
+  lantern.position.set(0.0, ANCHORS.tableTopY, 0.03);
+  hero.add(lantern);
+  vase.position.set(-0.02, ANCHORS.tableTopY, -0.2);
   terrace.add(hero);
+
+  // Lichterkette über der Terrasse (von der Markise zu den Laternen)
+  const bulbM = new THREE.MeshBasicMaterial({ color: '#ffd98a', toneMapped: false });
+  const bulbColors = ['#ffd98a', '#ff7ac0', '#7af0ff', '#ffd98a'];
+  for (const [x0, x1] of [[-8, -3], [-3, 2], [2, 6.5]]) {
+    const a = new THREE.Vector3(x0, 3.1, LAYOUT.facadeZ + 1.6);
+    const b = new THREE.Vector3(x1, 3.0, -0.3);
+    for (let i = 0; i <= 14; i++) {
+      const t = i / 14;
+      const p = a.clone().lerp(b, t);
+      p.y -= Math.sin(Math.PI * t) * 0.45;
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.04, 4, 3), i % 3 ? bulbM : new THREE.MeshBasicMaterial({ color: bulbColors[i % 4], toneMapped: false }));
+      m.position.copy(p);
+      terrace.add(m);
+      if (i % 2 === 0) {
+        const gl = glow(bulbColors[i % 4], 0.22, 0.45);
+        gl.position.copy(p);
+        terrace.add(gl);
+      }
+    }
+    const pl = new THREE.PointLight('#ffc27a', 1.6, 5, 1.8);
+    pl.position.set((x0 + x1) / 2, 2.5, (LAYOUT.facadeZ + 1.6 - 0.3) / 2);
+    terrace.add(pl);
+  }
 
   // Weitere Tische mit Sonnenschirmen (Hintergrund-Gäste angedeutet)
   const otherTables = [
@@ -1306,11 +1440,11 @@ export function buildScene({ placeholders = true } = {}) {
 
   // ---- Platzhalter für die zwei Charaktere
   const actors = new THREE.Group();
-  actors.name = 'CharacterPlaceholders';
-  const pA = makePlaceholderFigure('#4f7bd9', 'A');
+  actors.name = 'Characters';
+  const pA = makeGirl();
   pA.position.copy(ANCHORS.seatA.position);
   pA.rotation.y = 0;
-  const pB = makePlaceholderFigure('#e0646e', 'B');
+  const pB = makeDetective();
   pB.position.copy(ANCHORS.seatB.position);
   pB.rotation.y = Math.PI;
   actors.add(pA, pB);
@@ -1324,6 +1458,9 @@ export function buildScene({ placeholders = true } = {}) {
   beach.traverse((o) => o.name === 'Flag' && flags.push(o));
   function update(t) {
     updateOcean(t);
+    const fl = 1 + Math.sin(t * 13) * 0.08 + Math.sin(t * 7.3) * 0.06;
+    lanternLight.intensity = 2.6 * fl;
+    flame.scale.y = fl;
     steams.forEach((s, i) => {
       const k = (t * 0.5 + i * 0.5) % 1;
       s.position.y = ANCHORS.tableTopY + 0.13 + k * 0.06;
@@ -1339,5 +1476,5 @@ export function buildScene({ placeholders = true } = {}) {
   }
   update(0);
 
-  return { scene, update, actors, sun, anchors: ANCHORS, cameras: CAMERAS };
+  return { scene, update, actors, characters: { A: pA, B: pB }, sun, anchors: ANCHORS, cameras: CAMERAS };
 }

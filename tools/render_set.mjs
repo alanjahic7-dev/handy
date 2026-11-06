@@ -13,10 +13,10 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const sceneDir = args.find((a) => !a.startsWith('--') && !/^\d+$/.test(a)) || 'scenes/cafe-ocean-drive';
-const W = +opt('--w', 1920), H = +opt('--h', 1080);
+const W = +opt('--w', 1080), H = +opt('--h', 1920);
 const placeholders = opt('--placeholders', '1');
 const pixel = opt('--pixel', '1');
-const lowres = opt('--lowres', '270');
+const lowres = opt('--lowres', '300');
 
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json' };
 const server = http.createServer((req, res) => {
@@ -35,7 +35,7 @@ page.on('pageerror', (e) => console.error('[page error]', e.message));
 await page.goto(`http://localhost:${port}/${sceneDir}/index.html?hud=0&t=2&w=${W}&h=${H}&placeholders=${placeholders}&pixel=${pixel}&lowres=${lowres}`);
 await page.waitForFunction(() => window.__ready, null, { timeout: 120000 });
 
-const camNames = await page.evaluate(async () => Object.keys((await import('./scene.js')).CAMERAS));
+const camNames = await page.evaluate(async () => Object.keys(innerWidth < innerHeight ? (await import('./scene.js')).CAMERAS : (await import('./scene.js')).CAMERAS_WIDE));
 
 const outDir = path.join(root, sceneDir, 'previews');
 fs.mkdirSync(outDir, { recursive: true });

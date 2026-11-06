@@ -1,8 +1,10 @@
 # Set: Café am Ocean Drive
 
-Prozedurale 3D-Landschaft (Three.js): Zwei Charaktere sitzen an einem kleinen
-Bistrotisch mit Kaffee auf der Terrasse eines Art-Deco-Cafés am Ocean Drive –
-gegenüber Palmenpark, Strand mit Rettungsschwimmer-Türmen und Atlantik.
+Prozedurale 3D-Landschaft (Three.js) im Vice-Files-Stil: Nacht, Lila/Indigo,
+Neon, Low-Poly, verpixelt, Hochformat 9:16. Die beiden Charaktere (die Blonde
+und der Detektiv) sitzen als Blockfiguren an einem kleinen Bistrotisch mit
+Kaffee und Tischlaterne auf der Terrasse eines Art-Deco-Cafés am Ocean Drive –
+gegenüber Palmenpark, Strand und Meer mit Mond.
 
 ## Inhalt
 
@@ -14,6 +16,8 @@ gegenüber Palmenpark, Strand mit Rettungsschwimmer-Türmen und Atlantik.
 | Straße | Ocean Drive mit doppelter Mittellinie, Parkbuchten, Retro-Cabrios, Art-Deco-Laternen |
 | Park & Strand | Palmenreihe, geschwungener Weg, Korallenstein-Mauer, Strandschirme & Liegen, 2 Lifeguard-Türme |
 | Meer | animierte Wellen, Schaumkante, Segelboot |
+| Licht | Mondlicht, Sternenhimmel, Neon-Leuchtschilder mit Glow, Straßenlaternen, Lichterkette, flackernde Tischlaterne |
+| Figuren | `characters.js`: A = Blonde (Haarreif, Jacke, Sneaker), B = Detektiv (Fedora, Trenchcoat) – sitzend, Mund-Varianten für Lip-Sync (`userData.setMouth(0/1/2)`), Kopf/Arme als Gruppen |
 | Animation | Wellen, Kaffeedampf, Palmen im Wind, Fahne – alles über `update(t)` deterministisch |
 
 ## Ansehen
@@ -29,35 +33,40 @@ URL-Parameter: `?cam=twoShot&hud=0&placeholders=0&t=3&w=1920&h=1080`
 
 ## Pixel-Look (unser Stil)
 
-Standardmäßig an: Die Szene wird mit ~270 Pixelzeilen gerendert und scharf
+Standardmäßig an: Die Szene wird mit ~300 Pixelzeilen gerendert und scharf
 (nearest neighbour) hochskaliert, mit dezenten Konturen und leicht
 reduzierter Farbpalette.
 
 - `?pixel=0` – aus (glatter Look)
-- `?lowres=270` – Pixelauflösung; kleiner = gröber (z. B. `200`), größer = feiner (z. B. `360`)
-- `?levels=28` – Farbstufen pro Kanal; kleiner = stärker posterisiert
+- `?lowres=300` – Pixelauflösung; kleiner = gröber (z. B. `220`), größer = feiner (z. B. `400`)
+- `?vignette=0.55` – dunkle Bildränder (0 = aus)
+- `?levels=24` – Farbstufen pro Kanal; kleiner = stärker posterisiert
 
-Beim Render-Skript: `--pixel 0|1`, `--lowres 270`.
+Beim Render-Skript: `--pixel 0|1`, `--lowres 300`.
 
-## Kamera-Presets (`CAMERAS` in `scene.js`)
+## Kamera-Presets
 
-`aerial`, `establishing`, `street`, `terrace`, `twoShot`, `otsA`, `otsB`,
-`closeA`, `closeB`, `tableInsert`, `oceanView` – Vorschaubilder in `previews/`.
+- `CAMERAS` (Hochformat 9:16, Standard): `establishing`, `aerial`, `terrace`,
+  `twoShot`, `otsA`, `otsB`, `closeA`, `closeB`, `tableInsert`, `oceanView`
+- `CAMERAS_WIDE` (16:9) – wird automatisch genutzt, wenn das Bild breiter als hoch ist
 
-## Charakter-Anker (`ANCHORS` in `scene.js`)
+Vorschaubilder (1080×1920) in `previews/`.
+
+## Charakter-Anker
+
+A (Blonde) sitzt links, B (Detektiv) rechts. (`ANCHORS` in `scene.js`)
 
 - **Figur A** (Platzhalter blau): Sitz `(-0.58, 0.47, -3.2)`, schaut nach +x
 - **Figur B** (Platzhalter rot): Sitz `(0.58, 0.47, -3.2)`, schaut nach −x
 - Tischplatte auf Höhe `0.75`, Tassen bei `cupA` / `cupB`, Augenhöhe `eyeA` / `eyeB`
 
-Die Platzhalter-Figuren (`CharacterPlaceholders`) markieren nur Position,
-Größe und Blickrichtung und werden durch die echten Charaktere ersetzt.
+Figuren ein-/ausblenden: `?placeholders=0` bzw. Button im Viewer.
 
 ## Rendern / Export
 
 ```bash
-npm run render:cafe            # alle Previews (1920x1080) + export/cafe_ocean_drive.glb
-node tools/render_set.mjs scenes/cafe-ocean-drive --w 1280 --h 720 --no-glb
+npm run render:cafe            # alle Previews (1080x1920) + export/cafe_ocean_drive.glb
+node tools/render_set.mjs scenes/cafe-ocean-drive --w 1920 --h 1080 --no-glb   # Querformat
 ```
 
-Die GLB-Datei (ohne Platzhalter) lässt sich in Blender, Unity, Unreal usw. importieren.
+Die GLB-Datei (ohne Figuren, ohne Pixel-Effekt) lässt sich in Blender, Unity, Unreal usw. importieren.
