@@ -764,10 +764,10 @@ function makeBistroTable(topColor = '#f3efe8') {
       ctx.stroke();
     }
   });
-  const top = cyl(0.3, 0.3, 0.03, mat('#ffffff', { map: marbleTex, roughness: 0.25 }), 40);
+  const top = cyl(0.3, 0.3, 0.03, mat('#b8b2a8', { map: marbleTex, roughness: 1, metalness: 0, envMapIntensity: 0 }), 40); // matt, keine Spiegelung
   top.position.y = 0.735;
   g.add(top);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.012, 8, 40), mat(PAL.chrome, { metalness: 0.9, roughness: 0.2 }));
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.012, 8, 40), mat('#8c8f96', { metalness: 0, roughness: 0.9, envMapIntensity: 0 }));
   rim.rotation.x = Math.PI / 2;
   rim.position.y = 0.735;
   g.add(rim);
@@ -1316,7 +1316,7 @@ export function buildScene({ placeholders = true } = {}) {
   lglow.position.y = 0.07;
   lantern.add(lglow);
   const lanternLight = new THREE.PointLight('#ffa040', 1.5, 3.2, 1.4);
-  lanternLight.position.y = 0.2;
+  lanternLight.position.y = 0.5; // höher, damit die Tischplatte nicht überstrahlt
   lantern.add(lanternLight);
   lantern.position.set(0.0, ANCHORS.tableTopY, 0.03);
   hero.add(lantern);
