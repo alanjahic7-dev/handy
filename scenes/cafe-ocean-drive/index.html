@@ -32,6 +32,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { buildScene, CAMERAS as CAM_PORTRAIT, CAMERAS_WIDE } from './scene.js';
 
 const params = new URLSearchParams(location.search);
@@ -48,14 +49,14 @@ renderer.setSize(W, H);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 0.95;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
 const { scene, update, actors } = buildScene({ placeholders: params.get('placeholders') !== '0' });
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-scene.environmentIntensity = 0.08;
+scene.environmentIntensity = 0.04;
 const camera = new THREE.PerspectiveCamera(40, W / H, 0.05, 1200);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -70,6 +71,9 @@ const lowRes = +params.get('lowres') || 300;
 const composer = new EffectComposer(renderer);
 const pixelPass = new RenderPixelatedPass(1, scene, camera, { normalEdgeStrength: 0.15, depthEdgeStrength: 0.25 });
 composer.addPass(pixelPass);
+// Leuchten der LEDs / Neons (?bloom=0 aus)
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(W / 4, H / 4), +(params.get('bloom') ?? 0.9), 0.5, 1.0);
+if (params.get('bloom') !== '0') composer.addPass(bloomPass);
 composer.addPass(new OutputPass());
 const paletteShader = {
   uniforms: { tDiffuse: { value: null }, levels: { value: +params.get('levels') || 24 }, saturation: { value: 1.15 }, vignette: { value: +(params.get('vignette') ?? 0.55) } },

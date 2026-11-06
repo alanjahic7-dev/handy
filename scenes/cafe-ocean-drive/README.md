@@ -18,6 +18,8 @@ gegenüber Palmenpark, Strand und Meer mit Mond.
 | Meer | animierte Wellen, Schaumkante, Segelboot |
 | Licht | Mondlicht, Sternenhimmel, Neon-Leuchtschilder mit Glow, Straßenlaternen, Lichterkette, flackernde Tischlaterne |
 | Figuren | `characters.js`: A = Blonde (Haarreif, Jacke, Sneaker), B = Detektiv (Fedora, Trenchcoat) – sitzend, Mund-Varianten für Lip-Sync (`userData.setMouth(0/1/2)`), Kopf/Arme als Gruppen |
+| LEDs | Neon-Leisten an jeder Etage, Dachkante und Gebäudekanten, leuchtende Turm-Finnen, Autos mit LED-Unterboden, Schein- und Rücklichtern; Bloom-Effekt (`?bloom=0` aus) |
+| Menschen | `makeNPC()` in `characters.js`: Gäste an allen Nachbartischen (mit Tischlaternen), Leute an/in den Autos, 8 Passanten auf dem Gehweg (laufen animiert), Leute im Park & am Strand |
 | Animation | Wellen, Kaffeedampf, Palmen im Wind, Fahne – alles über `update(t)` deterministisch |
 
 ## Ansehen
@@ -46,7 +48,7 @@ Beim Render-Skript: `--pixel 0|1`, `--lowres 300`.
 
 ## Kamera-Presets
 
-- `CAMERAS` (Hochformat 9:16, Standard): `establishing`, `aerial`, `terrace`,
+- `CAMERAS` (Hochformat 9:16, Standard): `establishing`, `streetLife`, `aerial`, `terrace`,
   `twoShot`, `otsA`, `otsB`, `closeA`, `closeB`, `tableInsert`, `oceanView`
 - `CAMERAS_WIDE` (16:9) – wird automatisch genutzt, wenn das Bild breiter als hoch ist
 

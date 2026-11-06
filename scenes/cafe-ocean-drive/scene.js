@@ -10,7 +10,7 @@
 // nach +x, Figur B sitzt rechts (+x) und schaut nach -x.
 
 import * as THREE from 'three';
-import { makeGirl, makeDetective } from './characters.js';
+import { makeGirl, makeDetective, makeNPC } from './characters.js';
 
 // ---------------------------------------------------------------- utilities
 function rng(seed) {
@@ -116,7 +116,8 @@ export const ANCHORS = {
 
 // Hochformat 9:16 (Standard, wie die bisherigen Videos)
 export const CAMERAS = {
-  establishing: { pos: [0.8, 1.9, 6.6], target: [0, 3.9, -5], fov: 64, label: 'Totale – Café bei Nacht von der Straße' },
+  establishing: { pos: [1.5, 2.3, 7.4], target: [-1, 3.6, -5], fov: 74, label: 'Totale – Café bei Nacht von der Straße' },
+  streetLife: { pos: [-15, 1.8, 3.6], target: [-3, 1.5, -2.6], fov: 60, label: 'Straßenleben – Gäste, Passanten, Autos' },
   aerial: { pos: [-9, 17, 42], target: [0, 3, -4], fov: 52, label: 'Luftaufnahme – Strand, Park, Ocean Drive' },
   terrace: { pos: [0.3, 1.55, 1.6], target: [0, 1.25, -3.6], fov: 56, label: 'Halbtotale – Terrasse' },
   twoShot: { pos: [0, 1.3, -0.6], target: [0, 1.02, -3.2], fov: 66, label: 'Two-Shot – beide im Profil' },
@@ -584,7 +585,14 @@ function interiorTexture(variant = 0) {
   });
 }
 
-function makeDecoBuilding({ width, floors, color, accent, trim = PAL.white, name, signText, signColor, tower = true, cafe = false }) {
+function neonMat(color) {
+  // HDR-Farbe (>1), damit nur LEDs/Neon den Bloom auslösen
+  const m = new THREE.MeshBasicMaterial({ color, toneMapped: false, fog: true });
+  m.color.multiplyScalar(2.2);
+  return m;
+}
+
+function makeDecoBuilding({ width, floors, color, accent, trim = PAL.white, name, signText, signColor, tower = true, cafe = false, neon }) {
   const g = new THREE.Group();
   g.name = name;
   const floorH = 3.3;
@@ -595,9 +603,9 @@ function makeDecoBuilding({ width, floors, color, accent, trim = PAL.white, name
   const accentM = mat(accent, { roughness: 0.7 });
   const trimM = mat(trim, { roughness: 0.6 });
   const glassDark = new THREE.MeshStandardMaterial({ color: '#1c1a3a', roughness: 0.2, metalness: 0.4 });
-  const glassWarm = new THREE.MeshStandardMaterial({ color: '#ffcf7a', emissive: '#ffb85c', emissiveIntensity: 0.9 });
+  const glassWarm = new THREE.MeshStandardMaterial({ color: '#ffcf7a', emissive: '#ffb85c', emissiveIntensity: 1.1 });
   const glassPink = new THREE.MeshStandardMaterial({ color: '#ff7ac0', emissive: '#ff5fae', emissiveIntensity: 0.7 });
-  const pickGlass = () => { const r = rand(); return r < 0.55 ? glassDark : r < 0.85 ? glassWarm : glassPink; };
+  const pickGlass = () => { const r = rand(); return r < 0.6 ? glassDark : r < 0.88 ? glassWarm : glassPink; };
 
   // Hauptkörper (Fassade bei z=0)
   if (cafe) {
@@ -632,10 +640,18 @@ function makeDecoBuilding({ width, floors, color, accent, trim = PAL.white, name
       g.add(box(winW + 0.5, 0.08, 0.6, trimM, x, y + winH / 2 + 0.12, 0.3)); // Eyebrow
       g.add(box(winW + 0.2, 0.1, 0.18, trimM, x, y - winH / 2 - 0.05, 0.09)); // Fensterbank
     }
-    // horizontales Band
+    // horizontales Band + LED-Leiste
     g.add(box(width, 0.18, 0.12, accentM, 0, groundH + f * floorH + 0.1, 0.06));
+    if (neon) g.add(box(width, 0.12, 0.08, neonMat(neon), 0, groundH + f * floorH + 0.1, 0.16));
   }
 
+  // LED-Konturen: Dachkante + senkrechte Gebäudekanten
+  if (neon) {
+    const nm = neonMat(neon);
+    g.add(box(width + 0.1, 0.14, 0.1, nm, 0, H + 0.92, 0.12));
+    g.add(box(width * 0.6 + 0.1, 0.07, 0.07, nm, 0, H + 1.62, 0.1));
+    for (const sx of [-1, 1]) g.add(box(0.14, H - groundH + 0.9, 0.1, nm, sx * (width / 2 + 0.02), groundH + (H - groundH + 0.9) / 2, 0.06));
+  }
   // Attika mit gestuftem Abschluss
   g.add(box(width, 0.9, 0.3, trimM, 0, H + 0.45, -0.1));
   g.add(box(width * 0.6, 0.7, 0.3, accentM, 0, H + 1.25, -0.1));
@@ -647,7 +663,7 @@ function makeDecoBuilding({ width, floors, color, accent, trim = PAL.white, name
     const y0 = cafe ? groundH - 0.1 : 0; // beim Café bleibt der Eingang frei
     const th = H + 3.5 - y0;
     g.add(box(tw, th, 0.9, trimM, 0, y0 + th / 2, 0.2));
-    for (const dx of [-0.55, 0, 0.55]) g.add(box(0.12, th, 0.25, accentM, dx, y0 + th / 2, 0.72));
+    for (const dx of [-0.55, 0, 0.55]) g.add(box(0.12, th, 0.25, neon && dx !== 0 ? neonMat(neon) : accentM, dx, y0 + th / 2, 0.72));
     // Bullaugen
     for (let f = 0; f < floors; f++) {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.06, 8, 24), trimM);
@@ -1027,7 +1043,8 @@ function makeStreetLamp() {
   return shadow(g);
 }
 
-function makeCar(color, x, z, flip = false) {
+let _glowTexCache;
+function makeCar(color, x, z, flip = false, underglow) {
   // stilisiertes Retro-Cabrio
   const g = new THREE.Group();
   g.name = 'Car';
@@ -1059,6 +1076,22 @@ function makeCar(color, x, z, flip = false) {
     hub.position.set(dx, 0.36, dz);
     g.add(hub);
   }
+  // Scheinwerfer / Rücklichter
+  for (const dz of [-0.6, 0.6]) {
+    g.add(box(0.06, 0.16, 0.3, neonMat('#fff4cc'), 2.31, 0.7, dz));
+    g.add(box(0.06, 0.12, 0.25, neonMat('#ff2a4a'), -2.31, 0.75, dz));
+  }
+  const hg = glow('#fff0c0', 1.6, 0.35);
+  hg.position.set(2.5, 0.7, 0);
+  g.add(hg);
+  // LED-Unterbodenbeleuchtung
+  const ug = underglow || '#ff3fa4';
+  g.add(box(4.3, 0.04, 0.04, neonMat(ug), 0, 0.22, 0.95));
+  g.add(box(4.3, 0.04, 0.04, neonMat(ug), 0, 0.22, -0.95));
+  const pool = new THREE.Mesh(new THREE.PlaneGeometry(6, 3.2), new THREE.MeshBasicMaterial({ map: (_glowTexCache ||= glowTexture()), color: ug, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.y = 0.07;
+  g.add(pool);
   g.position.set(x, -0.15, z);
   if (flip) g.rotation.y = Math.PI;
   return shadow(g);
@@ -1171,17 +1204,17 @@ function makePlaceholderFigure(color, label) {
 export function buildScene({ placeholders = true } = {}) {
   const scene = new THREE.Scene();
   scene.name = 'CafeOceanDrive';
-  scene.fog = new THREE.Fog('#241a44', 40, 260);
+  scene.fog = new THREE.Fog('#150e2c', 35, 240);
 
   buildSky(scene);
   buildGround(scene);
   const updateOcean = buildOcean(scene);
 
   // Licht: warme Nachmittagssonne von Südosten über dem Meer
-  const hemi = new THREE.HemisphereLight('#4a3c96', '#120a24', 0.6);
+  const hemi = new THREE.HemisphereLight('#3a2f80', '#0c0718', 0.32);
   scene.add(hemi);
   // Mondlicht (kühl, von der Meerseite)
-  const sun = new THREE.DirectionalLight('#9c95ff', 0.9);
+  const sun = new THREE.DirectionalLight('#9c95ff', 0.45);
   sun.position.set(-12, 30, 40);
   sun.target.position.set(0, 0, -3);
   sun.castShadow = true;
@@ -1201,13 +1234,13 @@ export function buildScene({ placeholders = true } = {}) {
   const buildings = new THREE.Group();
   buildings.name = 'Buildings';
   const row = [
-    { width: 13, floors: 2, color: PAL.lavender, accent: PAL.aqua, name: 'Deco_Lavender', signText: 'BREEZE', signColor: PAL.neonCyan, x: -20 },
-    { width: 14, floors: 3, color: PAL.pink, accent: PAL.aqua, name: 'Deco_OceanCafe', signText: 'MAREA', signColor: PAL.neonPink, x: -1.5, cafe: true },
-    { width: 12, floors: 3, color: PAL.mint, accent: PAL.coral, name: 'Deco_Mint', signText: 'TIDES', signColor: PAL.neonPink, x: 15 },
-    { width: 11, floors: 2, color: PAL.lemon, accent: PAL.aqua, name: 'Deco_Lemon', tower: false, x: 28 },
-    { width: 12, floors: 4, color: PAL.white, accent: PAL.coral, name: 'Deco_White', signText: 'SANDS', signColor: PAL.neonCyan, x: -33 },
-    { width: 14, floors: 3, color: '#bfe3f2', accent: PAL.pink, name: 'Deco_Sky', signText: 'PALMS', signColor: PAL.neonPink, x: 41 },
-    { width: 13, floors: 2, color: '#ffd1b3', accent: PAL.aqua, name: 'Deco_Peach', tower: false, x: -46 },
+    { width: 13, floors: 2, color: PAL.lavender, accent: PAL.aqua, neon: PAL.neonCyan, name: 'Deco_Lavender', signText: 'BREEZE', signColor: PAL.neonCyan, x: -20 },
+    { width: 14, floors: 3, color: PAL.pink, accent: PAL.aqua, neon: PAL.neonPink, name: 'Deco_OceanCafe', signText: 'MAREA', signColor: PAL.neonPink, x: -1.5, cafe: true },
+    { width: 12, floors: 3, color: PAL.mint, accent: PAL.coral, neon: PAL.neonPink, name: 'Deco_Mint', signText: 'TIDES', signColor: PAL.neonPink, x: 15 },
+    { width: 11, floors: 2, color: PAL.lemon, accent: PAL.aqua, neon: '#b06bff', name: 'Deco_Lemon', tower: false, x: 28 },
+    { width: 12, floors: 4, color: PAL.white, accent: PAL.coral, neon: PAL.neonCyan, name: 'Deco_White', signText: 'SANDS', signColor: PAL.neonCyan, x: -33 },
+    { width: 14, floors: 3, color: '#bfe3f2', accent: PAL.pink, neon: '#b06bff', name: 'Deco_Sky', signText: 'PALMS', signColor: PAL.neonPink, x: 41 },
+    { width: 13, floors: 2, color: '#ffd1b3', accent: PAL.aqua, neon: PAL.neonPink, name: 'Deco_Peach', tower: false, x: -46 },
   ];
   for (const b of row) {
     const bld = makeDecoBuilding(b);
@@ -1276,13 +1309,13 @@ export function buildScene({ placeholders = true } = {}) {
   lantern.name = 'TableLantern';
   lantern.add(box(0.08, 0.012, 0.08, mat('#2b2b2e'), 0, 0.006, 0));
   lantern.add(box(0.08, 0.012, 0.08, mat('#2b2b2e'), 0, 0.13, 0));
-  lantern.add(box(0.064, 0.11, 0.064, new THREE.MeshStandardMaterial({ color: '#ffd38a', emissive: '#ffb04a', emissiveIntensity: 2.2, transparent: true, opacity: 0.85 }), 0, 0.068, 0));
+  lantern.add(box(0.064, 0.11, 0.064, new THREE.MeshStandardMaterial({ color: '#ffd38a', emissive: '#ffb04a', emissiveIntensity: 1.2, transparent: true, opacity: 0.85 }), 0, 0.068, 0));
   const flame = box(0.02, 0.04, 0.02, new THREE.MeshBasicMaterial({ color: '#fff2c0', toneMapped: false }), 0, 0.05, 0);
   lantern.add(flame);
-  const lglow = glow('#ffae4a', 0.9, 0.55);
+  const lglow = glow('#ffae4a', 0.6, 0.35);
   lglow.position.y = 0.07;
   lantern.add(lglow);
-  const lanternLight = new THREE.PointLight('#ffa040', 2.6, 3.2, 1.4);
+  const lanternLight = new THREE.PointLight('#ffa040', 1.5, 3.2, 1.4);
   lanternLight.position.y = 0.2;
   lantern.add(lanternLight);
   lantern.position.set(0.0, ANCHORS.tableTopY, 0.03);
@@ -1314,9 +1347,14 @@ export function buildScene({ placeholders = true } = {}) {
     terrace.add(pl);
   }
 
-  // Weitere Tische mit Sonnenschirmen (Hintergrund-Gäste angedeutet)
+  // Menschen (Gäste, Passanten, Leute an den Autos)
+  const npcs = new THREE.Group();
+  npcs.name = 'People';
+  scene.add(npcs);
+
+  // Weitere Tische mit Gästen
   const otherTables = [
-    [-5.2, -4.6], [-3.4, -1.2], [3.6, -4.5], [3.8, -1.3], [-6.8, -1.6], [6.0, -2.8],
+    [-5.2, -4.6], [-3.4, -1.9], [3.6, -4.5], [3.8, -2.0], [-6.8, -2.1], [6.0, -2.8],
   ];
   otherTables.forEach(([x, z], i) => {
     const t = makeBistroTable(i % 2 ? '#f3efe8' : '#e9f3f1');
@@ -1328,7 +1366,22 @@ export function buildScene({ placeholders = true } = {}) {
       c.position.set(x + Math.cos(a) * 0.6, 0, z + Math.sin(a) * 0.6);
       c.rotation.y = -a + Math.PI;
       terrace.add(c);
+      if (i === 5 && k === 1) continue; // ein freier Platz
+      const guest = makeNPC(rand, { pose: 'sit' });
+      guest.position.set(c.position.x, 0.47, c.position.z);
+      guest.rotation.y = c.rotation.y;
+      npcs.add(guest);
     }
+    const tl = new THREE.Group();
+    tl.add(box(0.06, 0.09, 0.06, new THREE.MeshStandardMaterial({ color: '#ffd38a', emissive: '#ffb04a', emissiveIntensity: 2 }), 0, 0.045, 0));
+    const tg = glow('#ffae4a', 0.7, 0.5);
+    tg.position.y = 0.06;
+    tl.add(tg);
+    const tlight = new THREE.PointLight('#ffa040', 1.6, 2.6, 1.5);
+    tlight.position.y = 0.2;
+    tl.add(tlight);
+    tl.position.set(x - 0.06, 0.75, z + 0.05);
+    terrace.add(tl);
     const cup = makeCup({ latte: i % 3 !== 0 });
     cup.position.set(x + 0.08, 0.75, z);
     terrace.add(cup);
@@ -1341,7 +1394,7 @@ export function buildScene({ placeholders = true } = {}) {
   // Pflanzkübel als Terrassenbegrenzung
   for (let x = -8; x <= 6; x += 3.5) {
     const p = makePlanter();
-    p.position.set(x, 0, -0.45);
+    p.position.set(x, 0, -1.0);
     terrace.add(p);
   }
   // Kordel-Absperrung (Chrom-Pfosten)
@@ -1350,12 +1403,12 @@ export function buildScene({ placeholders = true } = {}) {
   for (let x = -8; x <= 6; x += 1.75) {
     if (Math.abs(((x + 8) / 3.5) % 1) < 0.01) continue;
     const p = cyl(0.025, 0.025, 0.9, postM, 10);
-    p.position.set(x, 0.45, -0.45);
+    p.position.set(x, 0.45, -1.0);
     terrace.add(p);
   }
   const rope = cyl(0.015, 0.015, 14, ropeM, 8);
   rope.rotation.z = Math.PI / 2;
-  rope.position.set(-1, 0.8, -0.45);
+  rope.position.set(-1, 0.8, -1.0);
   terrace.add(rope);
   // Tafel-Aufsteller
   const board = new THREE.Group();
@@ -1375,7 +1428,7 @@ export function buildScene({ placeholders = true } = {}) {
   panel.rotation.x = -0.12;
   board.add(panel);
   board.add(box(0.62, 0.92, 0.03, mat('#6b4a2b'), 0, 0.55, -0.03));
-  board.position.set(1.6, 0, -0.9);
+  board.position.set(1.7, 0, -1.3);
   board.rotation.y = 0.25;
   shadow(board);
   terrace.add(board);
@@ -1389,10 +1442,45 @@ export function buildScene({ placeholders = true } = {}) {
     l.position.set(x + 5, 0, -0.1);
     street.add(l);
   }
-  street.add(makeCar('#7fd6d0', -9, 1.35));
-  street.add(makeCar('#ff9fb2', 12, 1.35));
-  street.add(makeCar('#fff2b3', 22, 6.6, true));
+  street.add(makeCar('#7fd6d0', -9, 1.35, false, PAL.neonCyan));
+  street.add(makeCar('#ff9fb2', 12, 1.35, false, PAL.neonPink));
+  street.add(makeCar('#fff2b3', 22, 6.6, true, '#b06bff'));
+  street.add(makeCar('#2a2a3a', -24, 1.35, false, PAL.neonPink));
   scene.add(street);
+
+  const place = (pose, x, y, z, rotY) => {
+    const n = makeNPC(rand, { pose });
+    n.position.set(x, y, z);
+    n.rotation.y = rotY;
+    npcs.add(n);
+    return n;
+  };
+  // am türkisen Cabrio (x=-9): zwei unterhalten sich auf dem Bordstein
+  place('stand', -9.6, 0, 0.1, -0.3);
+  place('phone', -8.7, 0, 0.12, Math.PI + 0.4);
+  // im rosa Cabrio (x=12): Fahrer + Beifahrer, einer steht daneben
+  place('sit', 11.7, 1.23, 0.95, 0);
+  place('sit', 11.7, 1.23, 1.75, 0);
+  place('stand', 13.2, 0, 0.1, Math.PI / 2 + 0.6);
+  // am gelben Wagen gegenüber
+  place('stand', 21.4, 0, 8.15, -Math.PI / 2);
+  place('stand', 22.4, 0, 8.2, -Math.PI / 2 - 0.5);
+  // am dunklen Wagen
+  place('phone', -24.5, 0, 0.1, Math.PI / 2);
+  // Park & Strand
+  [[-6, 11.5], [-5.3, 11.8], [9, 12.5], [17, 11], [-15, 12.8], [3, 22], [3.7, 22.4], [-12, 33], [14, 34]].forEach(([x, z], i) => {
+    place(i % 4 === 3 ? 'phone' : 'stand', x, z > 20 ? -0.1 : 0, z, rand() * Math.PI * 2);
+  });
+  // Passanten auf dem Gehweg (laufen in beide Richtungen)
+  const walkers = [];
+  [[-30, 1], [-12, 1], [9, 1], [25, 1], [-20, -1], [4, -1], [17, -1], [36, -1]].forEach(([x0, dir], i) => {
+    const w = makeNPC(rand, { pose: 'walk' });
+    w.rotation.y = dir > 0 ? 0 : Math.PI;
+    w.position.set(x0, 0, dir > 0 ? -0.33 : -0.58);
+    w.userData.walk = { x0, dir, speed: 1.0 + (i % 3) * 0.15 };
+    npcs.add(w);
+    walkers.push(w);
+  });
 
   // ---- Palmen (Park + Gehweg)
   const palms = new THREE.Group();
@@ -1459,7 +1547,7 @@ export function buildScene({ placeholders = true } = {}) {
   function update(t) {
     updateOcean(t);
     const fl = 1 + Math.sin(t * 13) * 0.08 + Math.sin(t * 7.3) * 0.06;
-    lanternLight.intensity = 2.6 * fl;
+    lanternLight.intensity = 1.5 * fl;
     flame.scale.y = fl;
     steams.forEach((s, i) => {
       const k = (t * 0.5 + i * 0.5) % 1;
@@ -1471,6 +1559,11 @@ export function buildScene({ placeholders = true } = {}) {
       c.rotation.x = Math.cos(t * 0.7 + i * 1.3) * 0.03;
     });
     flags.forEach((f) => (f.rotation.y = Math.sin(t * 3) * 0.25));
+    npcs.children.forEach((n) => n.userData.animate && n.userData.animate(t));
+    walkers.forEach((w) => {
+      const { x0, dir, speed } = w.userData.walk;
+      w.position.x = ((((x0 + dir * speed * t + 45) % 90) + 90) % 90) - 45;
+    });
     boat.position.x = -30 + t * 0.3;
     boat.rotation.z = Math.sin(t * 0.8) * 0.03;
   }

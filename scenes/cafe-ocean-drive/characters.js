@@ -264,3 +264,147 @@ export function makeDetective() {
   g.userData = { head, armR, armL, hat, setMouth() {} };
   return g;
 }
+
+// =============================================================== NPCs
+// Zufällige Blockfiguren (Gäste, Passanten). Deterministisch über rnd().
+// pose: 'sit'  – Ursprung = Sitzfläche, schaut nach +x
+//       'stand' / 'walk' / 'phone' – Ursprung = Boden zwischen den Füßen, schaut nach +x
+const _mc = new Map();
+function cm(color, extra) {
+  const k = color + (extra ? JSON.stringify(extra) : '');
+  if (!_mc.has(k)) _mc.set(k, M(color, extra));
+  return _mc.get(k);
+}
+
+const SKINS = ['#f7c9a3', '#e8b48a', '#c98d5f', '#a86b43', '#7a4a2e', '#5a3420'];
+const HAIRS = ['#1c1410', '#3a2414', '#6b3e1e', '#c98a3c', '#f0c868', '#d9d2c8', '#8a2b5a', '#2b8fa8'];
+const TOPS = ['#ff5fae', '#4fd6e0', '#f7f3ea', '#ffd166', '#7b5cff', '#ff8a5c', '#2a2a38', '#3fbf8f', '#e94560', '#ffffff'];
+const BOTTOMS = ['#1b1a26', '#2d3a5a', '#e8e2d4', '#3b2a1e', '#5a5a66', '#7a1f3d'];
+
+function npcFace(skin, rnd) {
+  return px(8, 8, (c) => {
+    c.fillStyle = skin;
+    c.fillRect(0, 0, 8, 8);
+    c.fillStyle = '#1a1010';
+    const ey = 3 + (rnd() < 0.3 ? 1 : 0);
+    c.fillRect(2, ey, 1, 1);
+    c.fillRect(5, ey, 1, 1);
+    if (rnd() < 0.5) { c.fillStyle = 'rgba(80,30,20,0.8)'; c.fillRect(3, 6, 2, 1); }
+    if (rnd() < 0.2) { c.fillStyle = '#111'; c.fillRect(1, ey, 6, 1); } // Sonnenbrille
+  });
+}
+
+function patternTex(base, rnd) {
+  const kind = rnd();
+  if (kind < 0.55) return null;
+  const a = TOPS[(rnd() * TOPS.length) | 0];
+  return px(8, 8, (c) => {
+    c.fillStyle = base;
+    c.fillRect(0, 0, 8, 8);
+    c.fillStyle = a;
+    if (kind < 0.75) { for (let y = 0; y < 8; y += 2) c.fillRect(0, y, 8, 1); } // Streifen
+    else { for (let i = 0; i < 6; i++) c.fillRect((rnd() * 7) | 0, (rnd() * 7) | 0, 2, 1); } // Hawaii-Muster
+  });
+}
+
+export function makeNPC(rnd, { pose = 'stand', scale } = {}) {
+  const pick = (arr) => arr[(rnd() * arr.length) | 0];
+  const s = scale ?? 0.92 + rnd() * 0.16;
+  const skin = pick(SKINS);
+  const hair = pick(HAIRS);
+  const top = pick(TOPS);
+  const bottom = pick(BOTTOMS);
+  const shoe = pick(['#f3eef6', '#141012', '#5a3a22', '#ff5fae']);
+  const g = new THREE.Group();
+  g.name = 'NPC';
+  const pTex = patternTex(top, rnd);
+  const topM = pTex ? new THREE.MeshStandardMaterial({ map: pTex, roughness: 0.9, flatShading: true }) : cm(top);
+  const botM = cm(bottom), skinM = cm(skin), hairM = cm(hair), shoeM = cm(shoe);
+  const legs = [], arms = [];
+
+  const seated = pose === 'sit';
+  const hipY = seated ? 0 : 0.8 * s;
+  // Beine
+  for (const z of [-0.075 * s, 0.075 * s]) {
+    const leg = new THREE.Group();
+    leg.position.set(0, hipY, z);
+    if (seated) {
+      leg.add(block(0.4 * s, 0.14 * s, 0.14 * s, botM, 0.13 * s, 0.07 * s, 0));
+      leg.add(block(0.13 * s, 0.4 * s, 0.13 * s, botM, 0.3 * s, -0.19 * s, 0));
+      leg.add(block(0.22 * s, 0.08 * s, 0.15 * s, shoeM, 0.35 * s, -0.43 * s, 0));
+    } else {
+      leg.add(block(0.14 * s, 0.72 * s, 0.14 * s, botM, 0, -0.36 * s, 0));
+      leg.add(block(0.22 * s, 0.08 * s, 0.15 * s, shoeM, 0.04 * s, -0.76 * s, 0));
+    }
+    legs.push(leg);
+    g.add(leg);
+  }
+  const base = seated ? 0 : hipY;
+  g.add(block(0.26 * s, 0.14 * s, 0.32 * s, botM, -0.01 * s, base + 0.07 * s, 0));
+  g.add(block(0.22 * s, 0.42 * s, 0.34 * s, topM, -0.02 * s, base + 0.35 * s, 0));
+
+  // Arme
+  for (const side of [1, -1]) {
+    const arm = new THREE.Group();
+    arm.position.set(-0.02 * s, base + 0.53 * s, -side * 0.225 * s);
+    if (seated) {
+      arm.add(block(0.11 * s, 0.24 * s, 0.11 * s, topM, 0, -0.1 * s, 0));
+      arm.add(block(0.26 * s, 0.1 * s, 0.1 * s, skinM, 0.12 * s, -0.22 * s, side * 0.02 * s));
+    } else if (pose === 'phone' && side === 1) {
+      arm.add(block(0.11 * s, 0.24 * s, 0.11 * s, topM, 0, -0.1 * s, 0));
+      arm.add(block(0.22 * s, 0.09 * s, 0.09 * s, skinM, 0.1 * s, -0.2 * s, side * 0.06 * s));
+      arm.add(block(0.02 * s, 0.12 * s, 0.07 * s, cm('#9fe8ff', { emissive: '#9fe8ff', emissiveIntensity: 1.5 }), 0.22 * s, -0.14 * s, side * 0.07 * s));
+    } else {
+      arm.add(block(0.11 * s, 0.26 * s, 0.11 * s, topM, 0, -0.12 * s, 0));
+      arm.add(block(0.1 * s, 0.24 * s, 0.1 * s, skinM, 0, -0.36 * s, 0));
+    }
+    arms.push(arm);
+    g.add(arm);
+  }
+
+  // Kopf
+  const head = new THREE.Group();
+  head.position.set(0, base + 0.56 * s, 0);
+  const face = new THREE.MeshStandardMaterial({ map: npcFace(skin, rnd), roughness: 0.9 });
+  const h = new THREE.Mesh(new THREE.BoxGeometry(0.28 * s, 0.28 * s, 0.28 * s), [face, skinM, skinM, skinM, skinM, skinM]);
+  h.position.y = 0.15 * s;
+  h.castShadow = true;
+  head.add(h);
+  const style = rnd();
+  if (style < 0.3) { // kurz
+    head.add(block(0.3 * s, 0.06 * s, 0.3 * s, hairM, -0.01 * s, 0.31 * s, 0));
+    head.add(block(0.05 * s, 0.2 * s, 0.3 * s, hairM, -0.15 * s, 0.22 * s, 0));
+  } else if (style < 0.6) { // lang
+    head.add(block(0.31 * s, 0.07 * s, 0.32 * s, hairM, -0.01 * s, 0.31 * s, 0));
+    head.add(block(0.06 * s, 0.42 * s, 0.32 * s, hairM, -0.16 * s, 0.1 * s, 0));
+    head.add(block(0.2 * s, 0.3 * s, 0.03 * s, hairM, -0.05 * s, 0.17 * s, 0.155 * s));
+    head.add(block(0.2 * s, 0.3 * s, 0.03 * s, hairM, -0.05 * s, 0.17 * s, -0.155 * s));
+  } else if (style < 0.8) { // Cap
+    const capM = cm(pick(TOPS));
+    head.add(block(0.3 * s, 0.09 * s, 0.3 * s, capM, -0.01 * s, 0.32 * s, 0));
+    head.add(block(0.14 * s, 0.02 * s, 0.24 * s, capM, 0.2 * s, 0.28 * s, 0));
+  } else if (style < 0.9) { // Dutt
+    head.add(block(0.3 * s, 0.06 * s, 0.3 * s, hairM, -0.01 * s, 0.31 * s, 0));
+    head.add(block(0.12 * s, 0.1 * s, 0.12 * s, hairM, -0.06 * s, 0.38 * s, 0));
+  } // sonst Glatze
+  g.add(head);
+
+  const phase = rnd() * Math.PI * 2;
+  g.userData = {
+    head, legs, arms, pose,
+    animate(t) {
+      if (pose === 'walk') {
+        const sw = Math.sin(t * 7 + phase) * 0.45;
+        legs[0].rotation.z = sw; legs[1].rotation.z = -sw;
+        arms[0].rotation.z = -sw * 0.8; arms[1].rotation.z = sw * 0.8;
+        head.position.y = base + 0.56 * s + Math.abs(Math.cos(t * 7 + phase)) * 0.015;
+      } else {
+        // leichtes Kopfnicken / Gestikulieren im Gespräch
+        head.rotation.y = Math.sin(t * 0.7 + phase) * 0.25;
+        head.rotation.z = Math.sin(t * 1.9 + phase) * 0.04;
+        if (seated) arms[(phase * 10 | 0) % 2].rotation.x = Math.max(0, Math.sin(t * 1.3 + phase)) * 0.3;
+      }
+    },
+  };
+  return g;
+}
