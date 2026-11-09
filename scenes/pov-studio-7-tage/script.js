@@ -16,7 +16,7 @@ const MON = [2.6, 1.12, -1.8];
 
 export const SHOTS = [
   // 1) Ankunft, 08:47 – durch den Gang, Tobi kommt entgegen
-  { t0: 0, t1: 11, hands: 'cup', walk: [[0, 4.8]], cam: [
+  { t0: 0, t1: 11, name: 'Ankunft', hands: 'cup', walk: [[0, 4.8]], cam: [
     { t: 0, pos: [0, 1.65, 8.4], look: [0, 1.5, -8] },
     { t: 2.6, pos: [0.05, 1.65, 5.4], look: [0.2, 1.55, -8] },
     { t: 4.8, pos: [0.0, 1.65, 3.4], look: { actor: 'tobi' }, hold: true },
@@ -24,7 +24,8 @@ export const SHOTS = [
     { t: 11, pos: [0.1, 1.65, 3.2], look: [0, 2.1, -7.9] },
   ] },
   // 2) Am Platz, 09:20 – Bug-Ticket, Mia kommt
-  { t0: 11, t1: 24, hands: 'desk', typing: [[11.3, 13.8], [21.6, 24]], cam: [
+  { t0: 11, t1: 24, name: 'Bug-Ticket & Mia', seated: true, typing: [[11.3, 13.8], [21.8, 24]],
+    hands: [{ t: 11, mode: 'desk' }, { t: 13.9, mode: 'lap' }, { t: 21.4, mode: 'desk' }], cam: [
     { t: 11, pos: EYE_SIT, look: MON },
     { t: 13.6, pos: EYE_SIT, look: [2.5, 1.1, -1.8] },
     { t: 14.6, pos: [2.58, 1.2, -0.8], look: { actor: 'mia' }, hold: true },
@@ -33,12 +34,12 @@ export const SHOTS = [
     { t: 24, pos: EYE_SIT, look: [2.6, 1.1, -1.8] },
   ] },
   // 3) Mittagspause, 13:05 – Familien-Chat
-  { t0: 24, t1: 33, hands: 'phone', cam: [
-    { t: 24, pos: EYE_SIT, look: [2.55, 0.7, -1.2] },
-    { t: 33, pos: EYE_SIT, look: [2.53, 0.71, -1.2] },
+  { t0: 24, t1: 33, name: 'Familien-Chat', seated: true, hands: 'phone', cam: [
+    { t: 24, pos: EYE_SIT, look: [2.58, 0.55, -1.25] },
+    { t: 33, pos: EYE_SIT, look: [2.56, 0.56, -1.25] },
   ] },
   // 4) Build kaputt, 17:40 – der Chef kommt
-  { t0: 33, t1: 46, hands: 'desk', cam: [
+  { t0: 33, t1: 46, name: 'Build kaputt', seated: true, hands: [{ t: 33, mode: 'desk' }, { t: 35.4, mode: 'lap' }], cam: [
     { t: 33, pos: EYE_SIT, look: MON },
     { t: 35.0, pos: EYE_SIT, look: MON, hold: true },
     { t: 36.2, pos: [2.55, 1.2, -0.78], look: { actor: 'chef' } },
@@ -50,14 +51,15 @@ export const SHOTS = [
     { t: 46, pos: [2.6, 1.2, -0.8], look: { actor: 'tobi' } },
   ] },
   // 5) Nachts, 23:58 – der neue Build
-  { t0: 46, t1: 57, hands: 'desk', typing: [[46.2, 47.5]], cam: [
+  { t0: 46, t1: 57, name: 'Nachts: neuer Build', seated: true, typing: [[46.2, 47.5]],
+    hands: [{ t: 46, mode: 'desk' }, { t: 52.0, mode: 'lap' }], cam: [
     { t: 46, pos: EYE_SIT, look: MON },
     { t: 51.6, pos: EYE_SIT, look: [2.6, 1.1, -1.8], hold: true },
     { t: 52.5, pos: [2.62, 1.2, -0.8], look: { actor: 'tobi' } },
     { t: 57, pos: [2.62, 1.2, -0.8], look: { actor: 'tobi' } },
   ] },
   // 6) Mitternacht – die Wand springt auf „NOCH 6 TAGE“
-  { t0: 57, t1: 65, hands: 'none', walk: [[57, 58.6]], cam: [
+  { t0: 57, t1: 65, name: 'Noch 6 Tage', hands: 'none', walk: [[57, 58.6]], cam: [
     { t: 57, pos: [1.0, 1.65, -2.2], look: [0, 1.95, -7.9] },
     { t: 58.6, pos: [0.4, 1.65, -3.6], look: [0, 1.95, -7.9], hold: true },
     { t: 65, pos: [0.35, 1.65, -3.8], look: [0, 1.95, -7.9] },

@@ -23,6 +23,14 @@ Logos, echten Personen oder Spielinhalte von Rockstar.
   Titel, Untertitel pro Sprecher, Abspann. Neue Folgen brauchen nur `script.js` + `scene.js`.
 - **Look**: Tusche-Linien, Fischauge, echte Ego-Hände (Becher, Tastatur, Handy) aus `../shared/toon.js`
 
+## Arbeitsablauf: erst Storyboard, dann Video
+
+```bash
+npm run storyboard:7tage     # ~30 s: Bildercollage + Kameraplan je Szene -> storyboard/
+```
+
+Erst wenn das Storyboard passt, das (langsame) Video rendern.
+
 ## Rendern
 
 ```bash

@@ -8,7 +8,8 @@
 //
 // Drehbuch (script.js) – alle Zeiten in Sekunden:
 //   DURATION
-//   SHOTS   [{ t0, t1, hands: 'cup'|'desk'|'phone'|'none', walk: [[a, b]], typing: [[a, b]], raiseL: [[a, b]],
+//   SHOTS   [{ t0, t1, name, seated, hands: 'cup'|'desk'|'lap'|'phone'|'none' | [{ t, mode }],
+//              walk: [[a, b]], typing: [[a, b]], raiseL: [[a, b]],
 //              fov, cam: [{ t, pos: [x,y,z], look: [x,y,z] | { actor: 'tobi', dy }, hold }] }]
 //            Zwischen zwei Shots wird kurz auf Schwarz abgeblendet (Zeitsprung).
 //   HEADER  [{ t0, t1, line1, line2 }]                Ort/Zeit oben links
@@ -18,7 +19,7 @@
 //   ENDCARD { t0, big, small }
 //   SFX     [...]  (für tools/render_video.mjs)
 import * as THREE from 'three';
-import { createPovPost, makePovHands, preloadHands } from './toon.js';
+import { createPovPost, makePovHands, makePovBody, preloadHands } from './toon.js';
 
 const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 const inAny = (t, ranges = []) => ranges.reduce((m, [a, b]) => Math.max(m, ease((t - a) / 0.3) * (1 - ease((t - b + 0.3) / 0.3))), 0);
@@ -84,6 +85,10 @@ export async function runPov(S, buildScene, opts = {}) {
   scene.add(camera);
   const hands = await makePovHands(camera, { sleeve: opts.sleeve || '#3b3f4a', skin: opts.skin || '#f1c39c', phone: set.phone || null });
   const post = createPovPost(renderer, W, H, { fisheye: +(params.get('fisheye') ?? opts.fisheye ?? 0.42), ...(opts.post || {}) });
+  // Eigener Körper im Sitzen (Shots mit seated: true)
+  const body = makePovBody({ pants: opts.pants || '#2d3a5a', top: opts.sleeve || '#3b3f4a' });
+  body.visible = false;
+  scene.add(body);
 
   // ---- Kamera: Hermite-Spline innerhalb eines Shots
   const shotAt = (t) => S.SHOTS.find((s) => t >= s.t0 && t < s.t1) || S.SHOTS[S.SHOTS.length - 1];
@@ -112,7 +117,7 @@ export async function runPov(S, buildScene, opts = {}) {
     // entfernten Zielen über und der Blick kippt. Leicht nachziehend (Kopf folgt verzögert).
     const dirOf = (k) => resolve(k.look, t).sub(new THREE.Vector3(...k.pos)).normalize();
     const dir = spline(K, t - 0.08, dirOf).normalize().lerp(spline(K, t, dirOf).normalize(), 0.5).normalize();
-    const look = pos.clone().add(dir.multiplyScalar(3));
+    const look = pos.clone().add(dir.clone().multiplyScalar(3));
     const bob = inAny(t, shot.walk);
     const phase = t * Math.PI * 2 * 1.7;
     pos.y += (Math.abs(Math.sin(phase)) - 0.5) * 0.04 * bob;
@@ -123,7 +128,24 @@ export async function runPov(S, buildScene, opts = {}) {
     camera.lookAt(look);
     camera.rotateZ(Math.sin(phase / 2) * 0.01 * bob + sway(t, 2.6) * 0.007);
     if (camera.fov !== (shot.fov || 100)) { camera.fov = shot.fov || 100; camera.updateProjectionMatrix(); }
-    hands.update(t, { mode: shot.hands || 'none', bob, phase, typing: inAny(t, shot.typing), raiseL: inAny(t, shot.raiseL) });
+    // Körper: unter den Augen, dreht mit der (ruhigen) Blickrichtung mit – wie auf einem Drehstuhl
+    body.visible = !!shot.seated;
+    if (body.visible) {
+      const yaw = Math.atan2(-dir.x, -dir.z);
+      body.position.set(pos.x, 0, pos.z);
+      body.rotation.set(0, yaw, 0);
+    }
+    hands.update(t, { ...handsAt(shot, t), body, bob, phase, typing: inAny(t, shot.typing), raiseL: inAny(t, shot.raiseL) });
+  }
+  // Hand-Haltung eines Shots: 'desk' oder [{ t, mode }] mit weichem Wechsel (0.5 s)
+  function handsAt(shot, t) {
+    const H = shot.hands || 'none';
+    if (typeof H === 'string') return { mode: H };
+    let i = 0;
+    while (i < H.length - 1 && t >= H[i + 1].t) i++;
+    const cur = H[i];
+    const k = ease((t - cur.t) / 0.5);
+    return i > 0 && k < 1 ? { mode: H[i - 1].mode, modeB: cur.mode, k } : { mode: cur.mode };
   }
 
   // ---- Overlays
@@ -131,6 +153,7 @@ export async function runPov(S, buildScene, opts = {}) {
   const hdr = $('hdr'), boxEl = $('box'), titleEl = $('title'), subEl = $('sub'), endEl = $('end');
   const find = (list, t) => (list || []).find((x) => t >= x.t0 && t < x.t1);
   function overlays(t) {
+    for (const id of ['hdr', 'box', 'title', 'sub', 'end']) $(id).style.visibility = '';
     const h = find(S.HEADER, t);
     hdr.style.display = h ? '' : 'none';
     if (h) { hdr.querySelector('.l1').textContent = h.line1; hdr.querySelector('.l2').textContent = h.line2 || ''; }
@@ -178,6 +201,43 @@ export async function runPov(S, buildScene, opts = {}) {
     post.render(scene, camera, t);
   }
 
+  // ---- Kameraplan von oben (für das Storyboard): Kameraweg, Blickrichtungen, Figuren
+  const planGroup = new THREE.Group();
+  scene.add(planGroup);
+  planGroup.visible = false;
+  function renderPlan(i) {
+    const shot = S.SHOTS[i];
+    const tm = (shot.t0 + shot.t1) / 2;
+    renderAt(tm);
+    planGroup.clear();
+    const pts = [];
+    for (let tt = shot.t0; tt <= shot.t1; tt += 0.1) pts.push(spline(shot.cam, tt, (k) => new THREE.Vector3(...k.pos)).setY(2.6));
+    planGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: '#ff2d55' })));
+    for (const k of shot.cam) {
+      const p = new THREE.Vector3(...k.pos).setY(2.6);
+      const d = resolve(k.look, k.t).setY(2.6).sub(p).normalize();
+      planGroup.add(new THREE.ArrowHelper(d, p, 1.1, '#ff2d55', 0.3, 0.2));
+    }
+    // Figuren als Punkte zum Zeitpunkt der Shot-Mitte
+    for (const [n, a] of Object.entries(set.actors || {})) {
+      if (!a.root.visible) continue;
+      const m = new THREE.Mesh(new THREE.CircleGeometry(0.28, 20), new THREE.MeshBasicMaterial({ color: '#1e90ff' }));
+      m.rotation.x = -Math.PI / 2; m.position.copy(a.root.position).setY(2.62); planGroup.add(m);
+    }
+    planGroup.visible = true;
+    hands.group.visible = false;
+    const b = new THREE.Box3();
+    for (const k of shot.cam) b.expandByPoint(new THREE.Vector3(...k.pos));
+    const c = b.getCenter(new THREE.Vector3());
+    const half = Math.max(4.5, (b.max.x - b.min.x) * 0.8, (b.max.z - b.min.z) * 0.5);
+    const top = new THREE.OrthographicCamera(-half, half, half * H / W, -half * H / W, 0.1, 10);
+    top.position.set(c.x, 2.8, c.z); top.up.set(0, 0, -1); top.lookAt(c.x, 0, c.z);
+    for (const id of ['hdr', 'box', 'title', 'sub', 'end']) $(id).style.visibility = 'hidden';
+    renderer.setRenderTarget(null);
+    renderer.render(scene, top);
+    planGroup.visible = false;
+  }
+
   let t = +(params.get('t') ?? 0);
   let playing = !params.has('t') && !params.has('w');
   let last = performance.now();
@@ -193,6 +253,6 @@ export async function runPov(S, buildScene, opts = {}) {
     if (e.code === 'ArrowLeft') t = Math.max(0, t - 1);
   });
   if (params.has('w')) renderAt(t); else requestAnimationFrame(loop);
-  window.__pov = { renderAt, duration: S.DURATION, sfx: S.SFX || [], camera, set, hands };
+  window.__pov = { renderAt, renderPlan, duration: S.DURATION, sfx: S.SFX || [], camera, set, hands, script: JSON.parse(JSON.stringify({ SHOTS: S.SHOTS, LINES: S.LINES || [], HEADER: S.HEADER || [], BOXES: S.BOXES || [], TITLES: S.TITLES || [] })) };
   window.__ready = true;
 }

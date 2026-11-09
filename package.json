@@ -9,7 +9,8 @@
     "stills:serverraum": "node tools/render_video.mjs scenes/pov-serverraum --stills 1.5,6,11,14.5,18,20.5",
     "fetch:rocketbox": "node tools/fetch_rocketbox.mjs",
     "render:7tage": "node tools/render_video.mjs scenes/pov-studio-7-tage",
-    "stills:7tage": "node tools/render_video.mjs scenes/pov-studio-7-tage --stills 2,7,15.5,29.5,38.5,53.5,60"
+    "stills:7tage": "node tools/render_video.mjs scenes/pov-studio-7-tage --stills 2,7,15.5,29.5,38.5,53.5,60",
+    "storyboard:7tage": "node tools/storyboard.mjs scenes/pov-studio-7-tage"
   },
   "repository": {
     "type": "git",

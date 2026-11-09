@@ -2,3 +2,4 @@ node_modules/
 scenes/*/out/
 # Rocketbox-Figuren/Bewegungen (~130 MB) – mit `npm run fetch:rocketbox` holen
 scenes/shared/assets/rocketbox/
+scenes/*/storyboard/

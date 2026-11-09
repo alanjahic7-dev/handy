@@ -4,6 +4,7 @@
 //   toon(color)            – Toon-Material (3 harte Lichtstufen), gecacht pro Farbe
 //   makePerson(opts)       – stehende/sitzende Cartoon-Figur mit Gelenken
 //   makePovHands(camera)   – eigene Hände (echte Hand-Modelle mit Fingergelenken), async
+//   makePovBody()          – eigene Beine/Bauch im Sitzen
 //   createPovPost(...)     – Tusche-Linien (Kanten aus Tiefe/Normalen) + Fischauge + Papier + Korn
 //   canvasTex(w, h, draw)  – CanvasTexture-Helfer
 //
@@ -225,6 +226,7 @@ const POSES = {
   fist: { curl: [1.45, 1.6, 1.1], thumb: [0.7, 0.8, 0.6], spread: 0.0 },
   phone: { curl: [0.75, 0.9, 0.5], thumb: [0.45, 0.35, 0.25], spread: 0.0 },
   type: { curl: [0.45, 0.55, 0.35], thumb: [0.2, 0.2, 0.1], spread: 0.04 },
+  flat: { curl: [0.06, 0.08, 0.04], thumb: [0.35, 0.25, 0.1], spread: 0.04 },
 };
 
 const handCache = {};
@@ -323,10 +325,9 @@ export async function makePovHands(camera, { sleeve = '#3b3f4a', cuff = '#2c2f38
       parts.cup = c;
     }
     if (side < 0 && phone) {
-      // Handy liegt hochkant in der linken Handfläche (-y), Bildschirm zeigt von der Hand weg,
-      // Längsachse quer zu den Fingern (die Finger greifen um den Rand)
-      phone.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
-      phone.position.set(-0.035, -0.05, -0.075);
+      // Handy liegt flach auf der offenen linken Handfläche (-y), Oberkante Richtung Fingerspitzen
+      phone.rotation.set(Math.PI / 2, 0, Math.PI);
+      phone.position.set(0.0, -0.024, -0.085);
       holder.add(phone);
       parts.phone = phone;
     }
@@ -334,49 +335,105 @@ export async function makePovHands(camera, { sleeve = '#3b3f4a', cuff = '#2c2f38
     parts[side] = { holder, hand };
   }
 
-  // Haltungen im Kameraraum (x rechts, y oben, -z nach vorn). Euler-Reihenfolge YXZ.
+  // Haltungen. Standard: Kameraraum (x rechts, y oben, -z nach vorn), Euler-Reihenfolge YXZ.
+  // space: 'body' = im Körperraum (siehe makePovBody: Ursprung am Boden unter den Augen, Blick -z),
+  // z. B. Hände auf den Oberschenkeln – sie bleiben liegen, wenn man nur den Kopf dreht.
+  // Statt rot kann eine Hand über fingers/back (Richtungen) ausgerichtet werden.
   //   cup   – rechts Becher, links locker
   //   desk  – beide Hände auf der Tastatur
-  //   phone – links Handy (Handfläche nach oben, zum Gesicht gekippt), rechts locker unten
+  //   lap   – beide Hände liegen auf den Oberschenkeln
+  //   phone – Handy liegt flach auf der offenen linken Hand, rechte Hand im Schoß
   //   none  – keine Hände
+  const LAP = {
+    1: { space: 'body', pos: [0.15, 0.665, -0.3], fingers: [-0.15, -0.25, -1], back: [0.1, 1, -0.1], pose: 'relaxed' },
+    [-1]: { space: 'body', pos: [-0.15, 0.665, -0.3], fingers: [0.15, -0.25, -1], back: [-0.1, 1, -0.1], pose: 'relaxed' },
+  };
   const MODES = {
     cup: { 1: { pos: [0.2, -0.29, -0.37], rot: [0.35, 0.3, -1.45], pose: 'cup' }, [-1]: { pos: [-0.18, -0.27, -0.38], rot: [0.45, -0.45, 0.35], pose: 'relaxed' } },
     // Tastatur: Unterarme laufen diagonal aus den unteren Ecken ins Bild
     desk: { 1: { pos: [0.13, -0.315, -0.56], rot: [-0.3, 0.5, -0.15], pose: 'type' }, [-1]: { pos: [-0.13, -0.315, -0.56], rot: [-0.3, -0.5, 0.15], pose: 'type' } },
-    // Handy: linke Hand hält es hochkant, Finger zeigen nach rechts und greifen um den Rand
-    phone: { 1: { pos: [0.19, -0.38, -0.34], rot: [0.5, 0.45, -0.4], pose: 'relaxed' }, [-1]: { pos: [-0.075, -0.17, -0.27], fingers: [1, 0.12, -0.25], back: [0.05, -0.3, -1], pose: 'phone' } },
+    lap: LAP,
+    phone: { 1: LAP[1], [-1]: { pos: [-0.02, -0.16, -0.25], fingers: [0.1, 0.92, -0.38], back: [0, -0.38, -0.92], pose: 'flat' } },
   };
+  const _m = new THREE.Matrix4(), _inv = new THREE.Matrix4(), _s = new THREE.Vector3();
+  function target(side, mode, body) {
+    const b = MODES[mode][side];
+    const pos = new THREE.Vector3(...b.pos), quat = new THREE.Quaternion();
+    if (b.fingers) {
+      const F = new THREE.Vector3(...b.fingers).normalize();
+      const B = new THREE.Vector3(...b.back);
+      B.sub(F.clone().multiplyScalar(B.dot(F))).normalize();
+      quat.setFromRotationMatrix(new THREE.Matrix4().makeBasis(F.clone().cross(B), B, F.clone().negate()));
+    } else quat.setFromEuler(new THREE.Euler(...b.rot, 'YXZ'));
+    if (b.space === 'body' && body) {
+      // Körperraum -> Kameraraum
+      _m.compose(pos, quat, _s.set(1, 1, 1)).premultiply(body.matrixWorld).premultiply(_inv.copy(camera.matrixWorld).invert());
+      _m.decompose(pos, quat, _s);
+    }
+    return { pos, quat, pose: b.pose };
+  }
   return {
     group: g,
-    // mode: Haltung (s. o.), bob: Gehbewegung 0..1, phase: Schrittphase,
-    // raiseL/raiseR: Hand hochreißen (0..1), typing: Tipp-Bewegung (0..1)
-    update(t, { mode = cup ? 'cup' : 'desk', bob = 0, phase = 0, raiseL = 0, raiseR = 0, typing = 0 } = {}) {
-      g.visible = mode !== 'none';
-      if (mode === 'none') return;
-      if (parts.cup) parts.cup.visible = mode === 'cup';
-      if (parts.phone) parts.phone.visible = mode === 'phone';
+    // mode: Haltung (s. o.); modeB + k: Überblendung zu einer zweiten Haltung (0..1);
+    // body: Körper-Objekt für Haltungen im Körperraum; bob/phase: Gehbewegung;
+    // raiseL/raiseR: Hand hochreißen (0..1); typing: Tipp-Bewegung (0..1)
+    update(t, { mode = cup ? 'cup' : 'desk', modeB = null, k = 0, body = null, bob = 0, phase = 0, raiseL = 0, raiseR = 0, typing = 0 } = {}) {
+      const show = (m) => m && m !== 'none';
+      g.visible = show(mode) || show(modeB);
+      if (!g.visible) return;
+      if (!show(mode)) { mode = modeB; k = 0; modeB = null; }
+      if (!show(modeB)) modeB = null;
+      const dom = modeB && k > 0.5 ? modeB : mode;
+      if (parts.cup) parts.cup.visible = dom === 'cup';
+      if (parts.phone) parts.phone.visible = dom === 'phone';
+      camera.updateMatrixWorld();
+      body?.updateMatrixWorld();
       for (const side of [-1, 1]) {
-        const p = parts[side], b = MODES[mode][side];
+        const p = parts[side];
+        const A = target(side, mode, body);
+        if (modeB) {
+          const B = target(side, modeB, body);
+          A.pos.lerp(B.pos, k);
+          A.quat.slerp(B.quat, k);
+          p.hand.setPose(A.pose, B.pose, k);
+        } else p.hand.setPose(A.pose);
         const raise = side > 0 ? raiseR : raiseL;
         const sway = Math.sin(phase + (side > 0 ? Math.PI : 0)) * 0.012 * bob;
-        const breathe = Math.sin(t * 1.6 + side) * 0.004;
+        const breathe = Math.sin(t * 1.6 + side) * 0.003;
         const tap = typing * (Math.max(0, Math.sin(t * (17 + side * 3) + side)) * 0.006);
-        p.holder.position.set(b.pos[0] - raise * 0.04 * side, b.pos[1] + sway + breathe + tap + raise * 0.13, b.pos[2] - raise * 0.03);
-        if (b.fingers) {
-          // Ausrichtung über Finger- und Handrücken-Richtung (Kameraraum)
-          const F = new THREE.Vector3(...b.fingers).normalize();
-          const B = new THREE.Vector3(...b.back);
-          B.sub(F.clone().multiplyScalar(B.dot(F))).normalize();
-          p.holder.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(F.clone().cross(B), B, F.clone().negate()));
-          p.holder.rotateZ(Math.sin(t * 0.9 + side) * 0.02);
-        } else {
-          p.holder.rotation.set(b.rot[0] + raise * 0.45 + Math.sin(t * 0.9 + side) * 0.02, b.rot[1], b.rot[2] - raise * 0.25 * side, 'YXZ');
-        }
-        if (raise > 0) p.hand.setPose(b.pose, 'fist', raise);
-        else p.hand.setPose(b.pose);
+        p.holder.position.copy(A.pos).add(_s.set(-raise * 0.04 * side, sway + breathe + tap + raise * 0.13, -raise * 0.03));
+        p.holder.quaternion.copy(A.quat);
+        p.holder.rotateX(raise * 0.45 + Math.sin(t * 0.9 + side) * 0.015);
+        if (raise > 0) p.hand.setPose(A.pose, 'fist', raise);
       }
     },
   };
+}
+
+// ---------- Eigener Körper im Sitzen (Ich-Perspektive) ----------
+// Oberschenkel, Knie, Unterschenkel, Schuhe und Bauch. Ursprung = Boden unter den Augen, Blick nach -z.
+// Der Player setzt die Position unter die Kamera und dreht den Körper mit der Blickrichtung mit
+// (Drehstuhl), aber nicht mit dem Nicken.
+export function makePovBody({ pants = '#2d3a5a', shoes = '#2b2b30', top = '#2f3440' } = {}) {
+  const g = new THREE.Group();
+  const P = toon(pants), SH = toon(shoes), T = toon(top);
+  for (const side of [-1, 1]) {
+    const x = 0.11 * side;
+    const thigh = cap(0.078, 0.36, P, x, 0.55, -0.19);
+    thigh.rotation.x = Math.PI / 2 - 0.08;
+    g.add(thigh);
+    g.add(ball(0.072, P, x, 0.54, -0.42));
+    g.add(cap(0.062, 0.36, P, x * 1.05, 0.3, -0.45));
+    const shoe = cap(0.055, 0.14, SH, x * 1.05, 0.06, -0.52);
+    shoe.rotation.x = Math.PI / 2;
+    shoe.scale.set(1.15, 1, 0.75);
+    g.add(shoe);
+  }
+  const belly = cap(0.16, 0.28, T, 0, 0.82, 0.13);
+  belly.scale.set(1.12, 1, 0.75);
+  g.add(belly);
+  g.add(ball(0.17, P, 0, 0.6, 0.02, [1.1, 0.55, 0.9]));
+  return g;
 }
 
 // ---------- Nachbearbeitung: Tusche-Look ----------
