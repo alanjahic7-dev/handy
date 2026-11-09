@@ -7,8 +7,10 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+// fileURLToPath: funktioniert auch unter Windows (C:\...)
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.join(root, 'scenes/shared/assets/rocketbox');
 const RAW = 'https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/master';
 
