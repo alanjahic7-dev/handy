@@ -5,11 +5,17 @@ Satire: Studio, Figuren und Dialoge sind erfunden. Es gibt keine Logos, Figuren
 oder Spielinhalte von Rockstar.
 
 24 Sekunden, 9:16, im Stil der „Du warst dabei“-POV-Videos:
-- **Toon-Shading mit schwarzen Konturen** (`MeshToonMaterial` + `OutlineEffect`)
-- **Fischauge** und Ich-Perspektive mit **eigenen Händen** (Kaffeebecher) und Head-Bob beim Gehen
+- **Tusche-Linien wie handgezeichnet**: Kanten aus Tiefe und Normalen (auch an Kanten innerhalb
+  von Objekten), schwankende Strichstärke, die Linie „kocht“ leicht (8× pro Sekunde)
+- **Weiche Schattierung** (Lambert) mit Lichtkegeln unter den Deckenleuchten, gedämpfte Farben, Papierstruktur
+- **Fischauge** und Ich-Perspektive mit **echten Händen** (Hand-Modelle mit Fingergelenken, Posen
+  `relaxed` / `cup` / `fist` / `phone`)
+- **Flüssige Kamera**: Spline durch die Keyframes (kein Abbremsen an jedem Punkt), leicht nachziehender Blick,
+  überlagertes Kopf-Wackeln, Head-Bob beim Gehen
+- Figuren mit Rumpf-Silhouette, sich verjüngenden Gliedern und echten Händen
 - **Ort/Zeit-Box** oben links (dunkel) und **Alarm-Box** (rot)
 - **Untertitel mit einer Farbe pro Sprecher** (Du = weiß, Tobi = hellblau, Mia = gelb)
-- Filmkorn, Vignette, Abblende mit Abspann „Fortsetzung folgt …“ und Satire-Hinweis
+- Abblende mit Abspann „Fortsetzung folgt …“ und Satire-Hinweis
 
 ## Dateien
 
@@ -18,7 +24,8 @@ oder Spielinhalte von Rockstar.
 | `script.js` | **Drehbuch**: Dialogzeilen, Einblendungen, Kamera-Keyframes, Geräusche. Hier ändert man die Geschichte. |
 | `scene.js` | Set: Rack-Gang mit blinkenden LEDs, Launch-Monitor (Countdown, Spielerzahl, Kurve), Schreibtisch, Figuren, Licht, Animation |
 | `index.html` | Abspielseite: Kamerafahrt, Overlays, Untertitel |
-| `../shared/toon.js` | Wiederverwendbar für alle POV-Folgen: Toon-Material, `makePerson()`, `makePovHands()`, Nachbearbeitung |
+| `../shared/toon.js` | Wiederverwendbar für alle POV-Folgen: Material, `makePerson()`, `makeHand()`, `makePovHands()`, Tusche-Filter |
+| `../shared/assets/hands/` | Hand-Modelle (WebXR generic-hand, MIT-Lizenz) |
 | `previews/` | Standbilder |
 
 ## Ansehen
@@ -47,7 +54,7 @@ Alarm, Whoosh und Raumbrummen werden aus `SFX` in `script.js` per ffmpeg erzeugt
 ## Eine neue Folge bauen
 
 1. Ordner kopieren, z. B. `scenes/pov-buero-montag/`
-2. In `script.js` Zeilen, Boxen, Kamera und Geräusche anpassen
+2. In `script.js` Zeilen, Boxen, Kamera und Geräusche anpassen (`hold: true` an einem Kamera-Key = dort anhalten)
 3. Set in `scene.js` umbauen. Figuren entstehen mit `makePerson({ top, hair, hairStyle, glasses, headset … })`.
 4. `node tools/render_video.mjs scenes/pov-buero-montag`
 

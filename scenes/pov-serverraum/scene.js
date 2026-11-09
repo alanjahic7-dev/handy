@@ -1,7 +1,7 @@
 // Set: Serverraum in der Launch-Nacht (Toon-Stil, Ich-Perspektive).
 // Gang zwischen zwei Rack-Reihen, am Ende Wand-Monitor „Launch Control“ und Schreibtisch.
 import * as THREE from 'three';
-import { toon, canvasTex, noOutline, makePerson, GRADIENT } from '../shared/toon.js';
+import { toon, canvasTex, noOutline, makePerson, texMat } from '../shared/toon.js';
 import { LAUNCH, ALERT, CHEER, LINES } from './script.js';
 
 const box = (w, h, d, mat, x, y, z) => {
@@ -127,7 +127,7 @@ export function buildScene() {
   const room = new THREE.Group();
   scene.add(room);
   const L = ROOM.z0 - ROOM.z1, cz = (ROOM.z0 + ROOM.z1) / 2;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.x1 - ROOM.x0, L), new THREE.MeshToonMaterial({ map: floorTex(), gradientMap: GRADIENT }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.x1 - ROOM.x0, L), texMat(floorTex()));
   floor.rotation.x = -Math.PI / 2;
   floor.position.z = cz;
   floor.receiveShadow = true;
@@ -168,7 +168,7 @@ export function buildScene() {
   const ledPos = [];
   RACK_Z.forEach((z, i) => {
     for (const s of [-1, 1]) {
-      const front = new THREE.MeshToonMaterial({ map: rackFront(i * 2 + (s > 0 ? 1 : 0)), gradientMap: GRADIENT });
+      const front = texMat(rackFront(i * 2 + (s > 0 ? 1 : 0)));
       // Front zeigt zum Gang (+x links, -x rechts)
       const mats = s < 0 ? [front, sideMat, topMat, sideMat, sideMat, sideMat] : [sideMat, front, topMat, sideMat, sideMat, sideMat];
       const r = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.1, 0.62), mats);
@@ -237,7 +237,7 @@ export function buildScene() {
   // Pizzakarton (offen) + Dosen
   const pizzaLid = canvasTex(256, 256, (c) => { c.fillStyle = '#d9b98a'; c.fillRect(0, 0, 256, 256); c.fillStyle = '#c0392b'; c.font = 'bold 54px Inter, sans-serif'; c.fillText('PIZZA', 50, 145); });
   desk.add(box(0.42, 0.04, 0.42, toon('#d9b98a'), 1.55, 0.8, 0.2));
-  const lid = box(0.42, 0.42, 0.01, new THREE.MeshToonMaterial({ map: pizzaLid, gradientMap: GRADIENT }), 1.55, 1.01, -0.01);
+  const lid = box(0.42, 0.42, 0.01, texMat(pizzaLid), 1.55, 1.01, -0.01);
   desk.add(lid);
   desk.add(new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.02, 3, 1, false, 0, Math.PI * 1.2), toon('#e7b94a')).translateX(1.55).translateY(0.83).translateZ(0.2));
   const canCols = ['#3fe08a', '#ff5fae', '#5fd0ff', '#3fe08a'];
@@ -284,7 +284,7 @@ export function buildScene() {
   benChair.add(ben);
 
   // ---- Licht
-  scene.add(new THREE.HemisphereLight('#c9d2ee', '#2a2c38', 1.5));
+  scene.add(new THREE.HemisphereLight('#c9d2ee', '#2a2c38', 0.9));
   const key = new THREE.DirectionalLight('#e2e8ff', 1.4);
   key.position.set(2, 6, 4);
   key.target.position.set(0, 0, -8);
@@ -293,11 +293,13 @@ export function buildScene() {
   Object.assign(key.shadow.camera, { left: -4, right: 4, top: 8, bottom: -8, near: 1, far: 30 });
   key.shadow.bias = -0.0005;
   scene.add(key, key.target);
+  // Lichtkegel unter den Deckenleuchten (weiche Lichtpfützen auf dem Boden)
   const aisle = [];
-  for (let z = 1; z > -12; z -= 3.2) {
-    const l = new THREE.PointLight('#b4c6ff', 4, 7, 1.2);
-    l.position.set(0, 2.7, z);
-    scene.add(l);
+  for (let z = 2; z > -12; z -= 2.4) {
+    const l = new THREE.SpotLight('#c4d2ff', 9, 7, 0.75, 1.0, 1.4);
+    l.position.set(0, 2.85, z);
+    l.target.position.set(0, 0, z - 0.2);
+    scene.add(l, l.target);
     aisle.push(l);
   }
   const monLight = new THREE.PointLight('#6fc8ff', 6, 6, 1.2);
@@ -328,7 +330,7 @@ export function buildScene() {
     });
     leds.instanceColor.needsUpdate = true;
     const pulse = alert ? 0.5 + 0.5 * Math.sin(t * 12) : 0;
-    red.intensity = alert ? 10 * pulse + 3 : 0;
+    red.intensity = alert ? 5 * pulse + 1.5 : 0;
     beacon.material.color.set(alert ? (pulse > 0.5 ? '#ff2433' : '#7a1218') : '#4a0d10');
     for (const l of aisle) l.color.set(alert ? '#c49cff' : '#b4c6ff');
 

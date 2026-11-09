@@ -42,7 +42,8 @@ export const ENDCARD = {
   small: 'Satire. Studio, Figuren und Dialoge erfunden.',
 };
 
-// Kamera (Augenhöhe 1.65). look = Blickziel. Zwischen den Keys wird weich interpoliert.
+// Kamera (Augenhöhe 1.65). look = Blickziel. Die Kamera gleitet auf einer Kurve durch die Keys;
+// hold: true = dort abbremsen (z. B. Ende einer Gehstrecke).
 const TOBI_HEAD = [0.75, 1.68, -10.4];
 const MONITOR = [0, 1.95, -12.4];
 const RACK = [1.5, 1.35, -6.7];
@@ -50,7 +51,7 @@ const MIA = [-0.95, 1.2, -10.9];
 export const CAM = [
   { t: 0.0, pos: [0, 1.65, 1.2], look: [0, 1.55, -12] },
   { t: 2.4, pos: [0, 1.65, -3.6], look: [0.3, 1.6, -12] },
-  { t: 4.6, pos: [0.05, 1.65, -7.7], look: TOBI_HEAD },
+  { t: 4.6, pos: [0.05, 1.65, -7.7], look: TOBI_HEAD, hold: true },
   { t: 8.8, pos: [0.0, 1.65, -8.0], look: TOBI_HEAD },
   { t: 9.6, pos: [-0.15, 1.65, -8.4], look: MONITOR },
   { t: 13.4, pos: [-0.2, 1.65, -8.5], look: [0.0, 1.9, -12.4] },
