@@ -4,7 +4,8 @@
   "description": "3D-Sets für Charakter-Videos",
   "scripts": {
     "serve": "http-server . -p 8080 -c-1",
-    "render:cafe": "node tools/render_set.mjs scenes/cafe-ocean-drive"
+    "render:cafe": "node tools/render_set.mjs scenes/cafe-ocean-drive",
+    "render:pov": "node tools/render_pov.mjs scenes/pov-release-day"
   },
   "repository": {
     "type": "git",
@@ -19,5 +20,6 @@
   },
   "devDependencies": {
     "playwright": "^1.63.0"
-  }
+  },
+  "type": "module"
 }
