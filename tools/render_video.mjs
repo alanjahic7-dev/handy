@@ -65,6 +65,10 @@ for (const s of sfx) {
   if (s.type === 'beep') parts.push(`0.22*sin(2*PI*1000*t)*between(t,${T},${T}+0.13)`);
   if (s.type === 'launch') parts.push(`0.28*sin(2*PI*1480*t)*between(t,${T},${T}+0.9)*exp(-(t-${T})*2.5)`);
   if (s.type === 'alarm') parts.push(`0.11*sin(2*PI*if(lt(mod(t,0.5),0.25),820,560)*t)*between(t,${T},${(s.until - from).toFixed(3)})`);
+  if (s.type === 'buzz') parts.push(`0.22*sin(2*PI*170*t)*between(t,${T},${T}+0.55)*gt(sin(2*PI*11*t),0)`);
+  if (s.type === 'ping') parts.push(`0.16*(sin(2*PI*1320*t)+0.6*sin(2*PI*1980*t))*between(t,${T},${T}+0.35)*exp(-(t-${T})*11)`);
+  if (s.type === 'typing') parts.push(`0.35*(random(0)-0.5)*lt(mod(t*13+0.4*sin(t*5.3),1),0.07)*between(t,${T},${(s.until - from).toFixed(3)})`);
+  if (s.type === 'tap') parts.push(`0.22*(random(0)-0.5)*lt(mod(t*5.5+0.3*sin(t*3.1),1),0.05)*between(t,${T},${(s.until - from).toFixed(3)})`);
   if (s.type === 'chime') for (const [i, f] of [523, 659, 784, 1047].entries()) parts.push(`0.13*sin(2*PI*${f}*t)*between(t,${T}+${i * 0.09},${T}+1.4)*exp(-(t-${T}-${i * 0.09})*2.2)`);
 }
 const sfxExpr = parts.length ? parts.join('+') : '0';
@@ -91,7 +95,7 @@ const inputs = voice ? '[hum][fan][fx][wh][5]' : '[hum][fan][fx][wh]';
 mix.push(`${inputs}amix=inputs=${voice ? 5 : 4}:normalize=0,afade=t=out:st=${to - from - 1.2}:d=1.2,alimiter=limit=0.9[a]`);
 const vf = upscale && upscale !== W ? `scale=${upscale}:-2:flags=lanczos,format=yuv420p` : 'format=yuv420p';
 ff.push('-filter_complex', `[0:v]${vf}[v];` + mix.join(';'), '-map', '[v]', '-map', '[a]',
-  '-c:v', 'libx264', '-preset', 'slow', '-crf', '23', '-maxrate', '6M', '-bufsize', '12M', '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '160k', '-shortest', out);
+  '-c:v', 'libx264', '-preset', 'slow', '-crf', '23', '-maxrate', '4M', '-bufsize', '8M', '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '160k', '-shortest', out);
 
 const proc = spawn('ffmpeg', ff, { stdio: ['pipe', 'inherit', 'inherit'] });
 const done = new Promise((res, rej) => proc.on('close', (c) => (c === 0 ? res() : rej(new Error('ffmpeg exit ' + c)))));

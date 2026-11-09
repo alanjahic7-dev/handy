@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>POV Studio – 7 Tage vor Release</title>
+<script type="importmap">
+{ "imports": {
+  "three": "../../node_modules/three/build/three.module.js",
+  "three/addons/": "../../node_modules/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<script type="module">
+import { runPov } from '../shared/pov-player.js';
+import * as S from './script.js';
+import { buildScene } from './scene.js';
+runPov(S, buildScene, { sleeve: '#2f3440', skin: '#f1c39c' });
+</script>
+</body>
+</html>

@@ -223,7 +223,8 @@ const POSES = {
   relaxed: { curl: [0.25, 0.35, 0.25], thumb: [0.1, 0.15, 0.1], spread: 0.06 },
   cup: { curl: [0.95, 1.0, 0.6], thumb: [0.5, 0.5, 0.3], spread: 0.0 },
   fist: { curl: [1.45, 1.6, 1.1], thumb: [0.7, 0.8, 0.6], spread: 0.0 },
-  phone: { curl: [0.6, 0.9, 0.5], thumb: [0.2, 0.3, 0.2], spread: 0.0 },
+  phone: { curl: [0.75, 0.9, 0.5], thumb: [0.45, 0.35, 0.25], spread: 0.0 },
+  type: { curl: [0.45, 0.55, 0.35], thumb: [0.2, 0.2, 0.1], spread: 0.04 },
 };
 
 const handCache = {};
@@ -286,7 +287,7 @@ export function makeHand(side, mat, { fingers = [0, 0, -1], back = [0, 1, 0] } =
   return { group, setPose };
 }
 
-export async function makePovHands(camera, { sleeve = '#3b3f4a', cuff = '#2c2f38', skin = '#f1c39c', cup = true } = {}) {
+export async function makePovHands(camera, { sleeve = '#3b3f4a', cuff = '#2c2f38', skin = '#f1c39c', cup = true, phone = null } = {}) {
   await preloadHands();
   const g = new THREE.Group();
   camera.add(g);
@@ -319,31 +320,60 @@ export async function makePovHands(camera, { sleeve = '#3b3f4a', cuff = '#2c2f38
       c.rotation.z = Math.PI / 2;
       c.position.set(0.0, -0.05, -0.065);
       holder.add(c);
+      parts.cup = c;
+    }
+    if (side < 0 && phone) {
+      // Handy liegt hochkant in der linken Handfläche (-y), Bildschirm zeigt von der Hand weg,
+      // Längsachse quer zu den Fingern (die Finger greifen um den Rand)
+      phone.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
+      phone.position.set(-0.035, -0.05, -0.075);
+      holder.add(phone);
+      parts.phone = phone;
     }
     g.add(holder);
     parts[side] = { holder, hand };
   }
 
-  // Grundhaltung in Kameraraum (x rechts, y oben, -z nach vorn)
-  const BASE = {
-    // rechts: Becher, Handrücken nach außen, Daumen oben
-    1: { pos: [0.2, -0.29, -0.37], rot: [0.35, 0.3, -1.45] },
-    // links: locker, Handrücken oben, Finger nach vorn-innen
-    [-1]: { pos: [-0.18, -0.27, -0.38], rot: [0.45, -0.45, 0.35] },
+  // Haltungen im Kameraraum (x rechts, y oben, -z nach vorn). Euler-Reihenfolge YXZ.
+  //   cup   – rechts Becher, links locker
+  //   desk  – beide Hände auf der Tastatur
+  //   phone – links Handy (Handfläche nach oben, zum Gesicht gekippt), rechts locker unten
+  //   none  – keine Hände
+  const MODES = {
+    cup: { 1: { pos: [0.2, -0.29, -0.37], rot: [0.35, 0.3, -1.45], pose: 'cup' }, [-1]: { pos: [-0.18, -0.27, -0.38], rot: [0.45, -0.45, 0.35], pose: 'relaxed' } },
+    // Tastatur: Unterarme laufen diagonal aus den unteren Ecken ins Bild
+    desk: { 1: { pos: [0.13, -0.315, -0.56], rot: [-0.3, 0.5, -0.15], pose: 'type' }, [-1]: { pos: [-0.13, -0.315, -0.56], rot: [-0.3, -0.5, 0.15], pose: 'type' } },
+    // Handy: linke Hand hält es hochkant, Finger zeigen nach rechts und greifen um den Rand
+    phone: { 1: { pos: [0.19, -0.38, -0.34], rot: [0.5, 0.45, -0.4], pose: 'relaxed' }, [-1]: { pos: [-0.075, -0.17, -0.27], fingers: [1, 0.12, -0.25], back: [0.05, -0.3, -1], pose: 'phone' } },
   };
   return {
     group: g,
-    // bob: Gehbewegung 0..1, phase: Schrittphase, raiseL/raiseR: Hand hochreißen (0..1)
-    update(t, { bob = 0, phase = 0, raiseL = 0, raiseR = 0 } = {}) {
+    // mode: Haltung (s. o.), bob: Gehbewegung 0..1, phase: Schrittphase,
+    // raiseL/raiseR: Hand hochreißen (0..1), typing: Tipp-Bewegung (0..1)
+    update(t, { mode = cup ? 'cup' : 'desk', bob = 0, phase = 0, raiseL = 0, raiseR = 0, typing = 0 } = {}) {
+      g.visible = mode !== 'none';
+      if (mode === 'none') return;
+      if (parts.cup) parts.cup.visible = mode === 'cup';
+      if (parts.phone) parts.phone.visible = mode === 'phone';
       for (const side of [-1, 1]) {
-        const p = parts[side], b = BASE[side];
+        const p = parts[side], b = MODES[mode][side];
         const raise = side > 0 ? raiseR : raiseL;
         const sway = Math.sin(phase + (side > 0 ? Math.PI : 0)) * 0.012 * bob;
         const breathe = Math.sin(t * 1.6 + side) * 0.004;
-        p.holder.position.set(b.pos[0] - raise * 0.04 * side, b.pos[1] + sway + breathe + raise * 0.13, b.pos[2] - raise * 0.03);
-        p.holder.rotation.set(b.rot[0] + raise * 0.45 + Math.sin(t * 0.9 + side) * 0.02, b.rot[1], b.rot[2] - raise * 0.25 * side, 'YXZ');
-        if (side > 0 && cup) p.hand.setPose('cup');
-        else p.hand.setPose('relaxed', 'fist', raise);
+        const tap = typing * (Math.max(0, Math.sin(t * (17 + side * 3) + side)) * 0.006);
+        p.holder.position.set(b.pos[0] - raise * 0.04 * side, b.pos[1] + sway + breathe + tap + raise * 0.13, b.pos[2] - raise * 0.03);
+        if (b.fingers) {
+          // Ausrichtung über Finger- und Handrücken-Richtung (Kameraraum)
+          const F = new THREE.Vector3(...b.fingers).normalize();
+          const B = new THREE.Vector3(...b.back);
+          B.sub(F.clone().multiplyScalar(B.dot(F))).normalize();
+          p.holder.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(F.clone().cross(B), B, F.clone().negate()));
+          p.holder.rotateZ(Math.sin(t * 0.9 + side) * 0.02);
+        } else {
+          p.holder.rotation.set(b.rot[0] + raise * 0.45 + Math.sin(t * 0.9 + side) * 0.02, b.rot[1], b.rot[2] - raise * 0.25 * side, 'YXZ');
+        }
+        if (raise > 0) p.hand.setPose(b.pose, 'fist', raise);
+        else p.hand.setPose(b.pose);
       }
     },
   };
@@ -360,6 +390,9 @@ export function createPovPost(renderer, W, H, opts = {}) {
   rtND.depthTexture = new THREE.DepthTexture(W, H);
   rtND.depthTexture.type = THREE.FloatType;
   const normalMat = new THREE.MeshNormalMaterial();
+  const hiddenMat = new THREE.MeshBasicMaterial({ visible: false });
+  // Figuren: einheitliche „Normale“ -> nur Umriss/Tiefenkanten, keine Linien an jeder Gesichtsfalte
+  const flatMat = new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(0.5, 0.5, 1) });
   const inkC = new THREE.Color(ink);
   const mat = new THREE.ShaderMaterial({
     uniforms: {
@@ -444,13 +477,20 @@ export function createPovPost(renderer, W, H, opts = {}) {
       const hidden = [];
       scene.traverse((o) => { if (o.userData.noInk && o.visible) { o.visible = false; hidden.push(o); } });
       scene.background = null;
-      scene.overrideMaterial = normalMat;
+      // Normalen-Material tauschen; dünne, transparente Flächen (Wimpern, Haarsträhnen) bekommen keine Linien
+      const swapped = [];
+      const pick = (m) => (m.userData.thin ? hiddenMat : m.userData.inkFlat ? flatMat : normalMat);
+      scene.traverse((o) => {
+        if (!o.isMesh || !o.visible) return;
+        swapped.push([o, o.material]);
+        o.material = Array.isArray(o.material) ? o.material.map(pick) : pick(o.material);
+      });
       renderer.shadowMap.autoUpdate = false;
       renderer.setClearColor(0x8080ff, 1);
       renderer.setRenderTarget(rtND);
       renderer.clear();
       renderer.render(scene, camera);
-      scene.overrideMaterial = null;
+      for (const [o, m] of swapped) o.material = m;
       for (const o of hidden) o.visible = true;
       scene.background = bg;
       renderer.shadowMap.autoUpdate = auto;
