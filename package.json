@@ -4,7 +4,9 @@
   "description": "3D-Sets für Charakter-Videos",
   "scripts": {
     "serve": "http-server . -p 8080 -c-1",
-    "render:cafe": "node tools/render_set.mjs scenes/cafe-ocean-drive"
+    "render:cafe": "node tools/render_set.mjs scenes/cafe-ocean-drive",
+    "render:serverraum": "node tools/render_video.mjs scenes/pov-serverraum",
+    "stills:serverraum": "node tools/render_video.mjs scenes/pov-serverraum --stills 1.5,6,11,14.5,18,20.5"
   },
   "repository": {
     "type": "git",
