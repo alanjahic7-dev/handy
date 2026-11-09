@@ -54,7 +54,7 @@ export function chunkLine(line) {
   for (const w of words) {
     cur.push(w);
     const len = cur.join(' ').length;
-    if (cur.length >= 3 || len > 16 || /[.!?…,]$/.test(w)) { chunks.push(cur); cur = []; }
+    if (cur.length >= 3 || len > 16 || (/[.!?…,]$/.test(w) && !/^\d+\.$/.test(w))) { chunks.push(cur); cur = []; }
   }
   if (cur.length) chunks.push(cur);
   let t = line.t;
@@ -87,8 +87,29 @@ export function speaking(ep, t) {
   return t < a.chunk.t1 ? a.line.who : null;
 }
 
+// Uhr-Spur: [t, 'HH:MM' oder 'HH:MM:SS', tick?] – mit tick läuft die Uhr ab t in Echtzeit weiter
+export function clockSecs(ep, t) {
+  let key = ep.clock[0];
+  for (const k of ep.clock) if (k[0] <= t) key = k;
+  const [hh, mm, ss = 0] = key[1].split(':').map(Number);
+  return hh * 3600 + mm * 60 + ss + (key[2] ? t - key[0] : 0);
+}
+
 export function clockAt(ep, t) {
-  return step(ep.clock, t) || '00:00';
+  const s = Math.floor(clockSecs(ep, t)) % 86400;
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${pad((s / 3600) | 0)}:${pad(((s / 60) | 0) % 60)}`;
+}
+
+// Restzeit bis Mitternacht als HH:MM:SS (für Countdown-Anzeigen)
+export function countdownAt(ep, t, extraSecs = 0) {
+  const left = Math.max(0, Math.ceil(86400 - clockSecs(ep, t) - extraSecs));
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${pad((left / 3600) | 0)}:${pad(((left / 60) | 0) % 60)}:${pad(left % 60)}`;
+}
+
+export function activeCard(ep, t) {
+  return (ep.cards ?? []).find((c) => t >= c.t && t < c.t + c.dur) || null;
 }
 
 export function phoneRaise(ep, t) {

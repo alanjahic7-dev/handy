@@ -6,14 +6,20 @@ Nachrichten-Karten oben, Handy mit Gruppenchat in den eigenen Händen und
 kurze, farbige Untertitel pro Sprecher. Die Figuren sind unsere Vice-Files-Blockfiguren
 (Lena = die Blonde).
 
-**Folge 1:** *POV: GTA 6 kommt heute raus – und du musst noch arbeiten* (70 s, 9:16)
+**Folge 1:** *POV: Heute Nacht um 00:00 kommt GTA 6 raus* (88 s, 9:16)
 
-| Zeit | Uhr | Was passiert |
+Ein ganzer Tag voller Vorfreude: Mittwoch, 18. November, bis zum Release am 19. November
+um 00:00 Uhr. Der Preload lief schon seit dem 10. November.
+
+| Zeit | Ort · Uhr | Was passiert |
 |---|---|---|
-| 0–14 s | 08:59 | Crew-Chat explodiert („HEUTE. IST. DER. TAG.“), Lena merkt, warum du grinst |
-| 14–38 s | 11:47 | Zoom auf die Uhr, Mama schreibt, der Chef will, dass du bis 20 Uhr bleibst → „Zahnarzt“ |
-| 38–52 s | 14:12 | Heimlicher Countdown-Tab, Preload-Screenshot im Chat, Lena: „Tab zu – der Chef!“, die Uhr steht still |
-| 52–70 s | 16:58 | Sonnenuntergang, Countdown bis 17:00, „LAUF!“ – der Chef: „Ach… eine Sache noch.“ → **Teil 2 folgt** |
+| 0–3,6 s | Wohnzimmer · 23:59:56 | **Hook:** Countdown auf dem TV, Controller in der Hand, Text „POV: Heute Nacht um 00:00 kommt GTA 6 raus“ |
+| 3,6–16 s | Schlafzimmer · 06:00 | „18 STUNDEN VORHER“, Wecker mit Release-Widget, Poster, Kalender (10.11. Preload, 19.11. eingekreist) |
+| 16–27 s | Küche · 07:10 | Frühstück, Morgenmagazin im TV, Mitbewohner Mo: „Pizza, Energy, kein Schlaf?“ – „Deal.“ |
+| 27–40 s | Bus Linie 6 · 07:42 | Stadt mit Palmen zieht vorbei, Plakat „HEUTE NACHT 00:00“, Tagträumen, Crew-Chat |
+| 40–62 s | Büro · 09:03 → 17:00 | Countdown-Tab, Lena: „Tab zu – der Chef!“, Chef will Überstunden → „Heute nicht.“, Feierabend-Glocke |
+| 62–83,6 s | Wohnzimmer · 23:41 → 00:00 | Neon-LEDs, Mo auf dem Sofa, Countdown „DREI! ZWEI! EINS!“, Titelbild, START gedrückt |
+| 83,6–88 s | | Abspann „WIR SEHEN UNS IN LEONIDA 🌴“ |
 
 ## Ansehen
 
@@ -34,13 +40,13 @@ Unten: Play/Pause und Zeitleiste. URL-Parameter:
 ## Video rendern
 
 ```bash
-npm run render:pov                           # -> export/release-day-arbeit.mp4 (1080x1920, 30 fps, mit Sounds)
+npm run render:pov                           # -> export/release-day.mp4 (1080x1920, 30 fps, mit Sounds)
 node tools/render_pov.mjs scenes/pov-release-day --stills 6,25,62   # nur Standbilder -> previews/
 node tools/render_pov.mjs scenes/pov-release-day --from 50 --to 70 --out teil.mp4
 ```
 
-Der Ton enthält Vibration bei Nachrichten, Chat-Pops, Wusch bei Zeitsprüngen, die
-17-Uhr-Glocke und einen Abschluss-Sting. **Stimmen** (Lena, Chef, Gedanken) sprecht ihr
+Der Ton enthält Wecker, Vibration bei Nachrichten, Chat-Pops, Wusch bei Zeitsprüngen,
+die 17-Uhr-Glocke, den Release-Boom um 00:00, den Tastendruck und einen Abschluss-Sting. **Stimmen** (Mo, Lena, Chef, Gedanken) sprecht ihr
 selbst ein oder legt TTS darüber – die Untertitel-Zeiten stehen in `episode.js`.
 
 ## Neue Folge schreiben
@@ -49,26 +55,31 @@ Alles steht in **`episode.js`** – kein Code nötig. Datei kopieren (z. B. `epi
 
 | Feld | Inhalt |
 |---|---|
-| `place`, `day`, `clock` | Kopfzeile: Ort, Wochentag, Uhrzeit ab Sekunde x |
+| `loc` | Drehort: `bedroom`, `kitchen`, `bus`, `office`, `living` |
+| `day`, `clock` | Kopfzeile: Wochentag, Uhrzeit ab Sekunde x (`[t, '23:59:49', true]` = Uhr läuft sekundengenau) |
+| `hook`, `cards` | Hook-Text am Anfang, große Zwischentitel („18 STUNDEN VORHER“) |
 | `cuts` | Zeitsprünge mit kurzer Abblende |
-| `daylight` | `morning`, `noon`, `afternoon`, `sunset` (Fenster & Licht) |
-| `monitor` | Bildschirm: `mail`, `excel`, `gta` (Countdown bis 18:00), `lock` |
-| `look` | Kopf: `[sek, 'monitor'/'phone'/'lap'/'clock'/'lena'/'window'/'bossLeft']` oder `[sek, yaw, pitch]` |
+| `daylight` | `dawn`, `morning`, `noon`, `afternoon`, `sunset`, `night` (Fenster & Licht) |
+| `monitor` | Büro-Bildschirm: `mail`, `excel`, `gta` (Countdown bis 00:00), `lock` |
+| `tv` | Wohnzimmer-TV: `countdown`, `flash`, `title`, `loading` |
+| `look` | Kopf: `[sek, yaw, pitch]` (im Büro auch Namen: `monitor`, `clock`, `lena`, `window`, `bossLeft`) |
 | `fov` | Zoom: 100 = Weitwinkel, ~36 = Zoom auf Uhr, ~52 = Handy |
-| `phone` | 0 = Handy im Schoß, 1 = vor dem Gesicht |
-| `rig` | Aufstehen & Laufen: `[sek, x, z, stehen 0..1]` |
+| `hold`, `phone`, `screen`, `press` | Was du hältst (`phone`/`controller`), 0 = unten / 1 = vor dem Gesicht, Handy-Bildschirm (`alarm`/`chat`), Tastendruck |
+| `rig`, `pose` | Augenposition `[sek, x, höhe, z, körperrichtung]` im Ort, Haltung `lie`/`sit`/`stand` |
 | `lena`, `boss` | Lena dreht sich zu dir (0..1), Chef läuft `[sek, x, z, richtung]` |
 | `chat` | Gruppenchat; `notify: true` = Karte oben, `me: true` = deine Nachricht, `img: 'preload'` |
 | `notes` | andere Benachrichtigungen (z. B. Mama) |
-| `lines` | Untertitel: `who` = `LENA` / `CHEF` / `DU`, `think: true` = Gedanke (kursiv) |
-| `end` | Abspann („TEIL 2 FOLGT“) |
+| `lines` | Untertitel: `who` = `DU` / `MO` / `LENA` / `CHEF`, `think: true` = Gedanke (kursiv) |
+| `end` | Abspann („WIR SEHEN UNS IN LEONIDA 🌴“) |
 
 Zwei Keys mit derselben Zeit = harter Schnitt (z. B. der Chef taucht plötzlich auf).
 
 ## Dateien
 
 - `scene.js` – Büro (Fensterfront mit Skyline & Palmen, Stellwände, Wanduhr, Chefbüro, Kollegen), Tageslicht-Presets, Monitor-Inhalte
-- `pov.js` – Kopf-Kamera, eigener Körper, Hände, Handy mit Chat-Display
+- `sets.js` – Schlafzimmer, Küche (TV-Nachrichten), Bus (vorbeiziehende Stadt), Gaming-Wohnzimmer (Neon, TV-Countdown, Titelbild)
+- `world.js` – alle Orte in einer Szene, Ortswechsel, Sonnenstand je Fensterseite
+- `pov.js` – Kopf-Kamera, eigener Körper (liegen/sitzen/stehen), Hände, Handy (Wecker & Chat), Controller
 - `timeline.js` – Keyframes, Untertitel-Häppchen, Benachrichtigungen, Sound-Events
 - `episode.js` – das Drehbuch
 - `index.html` – Comic-Shader (Konturen aus Tiefe/Normalen, Fischauge) und Overlays

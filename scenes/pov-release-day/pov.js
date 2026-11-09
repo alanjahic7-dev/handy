@@ -13,13 +13,33 @@ function limb(mat, thick) {
   m.castShadow = true;
   return m;
 }
-const _a = new THREE.Vector3(), _b = new THREE.Vector3();
 function placeLimb(m, a, b) {
   m.position.copy(a).add(b).multiplyScalar(0.5);
   m.scale.z = Math.max(0.01, a.distanceTo(b));
   m.lookAt(b);
 }
 
+function makeController() {
+  const g = new THREE.Group();
+  const body = toon('#1c1d26'), light = toon('#2a2c38');
+  g.add(box(0.15, 0.03, 0.07, body, 0, 0, 0));
+  for (const s of [-1, 1]) {
+    const grip = box(0.045, 0.035, 0.09, body, s * 0.062, -0.006, 0.045);
+    grip.rotation.y = s * 0.35;
+    g.add(grip);
+    const stick = box(0.022, 0.012, 0.022, light, s * 0.028, 0.02, 0.012);
+    g.add(stick);
+  }
+  const btn = (x, z, c) => g.add(box(0.012, 0.01, 0.012, toon(c, { emissive: c, emissiveIntensity: 0.4 }), x, 0.018, z));
+  btn(0.055, -0.012, '#2fe6ff'); btn(0.068, 0.0, '#ff3fa4'); btn(0.042, 0.0, '#ffd166'); btn(0.055, 0.012, '#7ef0a8');
+  g.add(box(0.03, 0.004, 0.02, toon('#ff3fa4', { emissive: '#ff3fa4', emissiveIntensity: 1.2 }), 0, 0.017, -0.02));
+  return g;
+}
+
+// update({ t, eye, pose, face, yaw, pitch, fov, raise, hold, screen, clock, shake, mouse, press })
+//   eye   – Weltposition der Augen
+//   pose  – 'sit' | 'stand' | 'lie'
+//   hold  – 'phone' | 'controller' | 'none'
 export function makePOV(scene, ep) {
   const camera = new THREE.PerspectiveCamera(100, 9 / 16, 0.03, 400);
   camera.rotation.order = 'YXZ';
@@ -27,10 +47,9 @@ export function makePOV(scene, ep) {
 
   const shirt = toon('#3b6fb6'), shirtDark = toon('#2f5a96'), skin = toon('#f0c19a'), jeans = toon('#2c3550'), shoe = toon('#f3f3f6');
 
-  // Körper (dreht sich mit, Kopf = Kamera)
   const body = new THREE.Group();
   scene.add(body);
-  const torso = box(0.42, 0.56, 0.24, shirt, 0, 0, 0.04);
+  const torso = box(0.42, 0.56, 0.24, shirt, 0, 0, 0.2);
   body.add(torso);
   const thighs = new THREE.Group();
   for (const x of [-0.1, 0.1]) {
@@ -40,86 +59,122 @@ export function makePOV(scene, ep) {
   }
   body.add(thighs);
 
-  // Handy
+  // Handy (in der Welt, Position wird zwischen Schoß und Gesicht gemischt)
   const phone = new THREE.Group();
   const screenTex = canvasTex(400, 820, () => {});
-  const caseMesh = box(0.078, 0.158, 0.012, toon('#15161c'), 0, 0, -0.004);
-  phone.add(caseMesh);
+  phone.add(box(0.078, 0.158, 0.012, toon('#15161c'), 0, 0, -0.004));
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.146), new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false }));
   screen.position.z = 0.003;
   phone.add(screen);
-  body.add(phone);
-
-  // Hände: zwei am Handy (Kinder des Handys), eine an der Maus
+  scene.add(phone);
   const handL = box(0.05, 0.085, 0.035, skin, -0.043, -0.045, -0.02);
   const handR = box(0.05, 0.085, 0.035, skin, 0.043, -0.045, -0.02);
   const thumbR = box(0.014, 0.034, 0.012, skin, 0.036, -0.04, 0.006);
   thumbR.rotation.z = 0.35;
   phone.add(handL, handR, thumbR);
+
+  // Controller
+  const pad = makeController();
+  scene.add(pad);
+  const padL = box(0.05, 0.05, 0.09, skin, -0.075, -0.02, 0.06);
+  const padR = box(0.05, 0.05, 0.09, skin, 0.075, -0.02, 0.06);
+  const padThumb = box(0.022, 0.016, 0.03, skin, 0.055, 0.03, 0.0);
+  pad.add(padL, padR, padThumb);
+
   const handMouse = box(0.06, 0.035, 0.09, skin);
-  body.add(handMouse);
+  scene.add(handMouse);
   const armL = limb(shirtDark, 0.075), armR = limb(shirtDark, 0.075);
-  body.add(armL, armR);
-  const _w = new THREE.Vector3();
-  const localOf = (obj) => body.worldToLocal(obj.getWorldPosition(_w).clone());
+  scene.add(armL, armR);
 
   const paintPhone = makePhonePainter(screenTex, ep);
-  let lastPos = null;
-  let walkPhase = 0;
+  let lastEye = null;
 
-  // Hilfspunkte in Körperkoordinaten
   const lerp = (a, b, u) => a + (b - a) * u;
   const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
-  const mix = (a, b, u) => a.clone().lerp(b, u);
+  const _q = new THREE.Quaternion(), _e = new THREE.Euler();
+  const _w = new THREE.Vector3();
 
-  function update({ t, x, z, stand, yaw, pitch, fov, raise, clock }) {
-    // Augenhöhe, Wippen beim Gehen
-    const eye = lerp(EYE_SIT, EYE_STAND, stand);
-    const pos = v3(x, 0, z);
-    const speed = lastPos ? pos.distanceTo(lastPos.p) / Math.max(1e-3, Math.abs(t - lastPos.t)) : 0;
-    lastPos = { p: pos.clone(), t };
+  // Ort + Drehung in Körperkoordinaten -> Welt
+  function bodyPose(pos, rx, ry = 0) {
+    const p = body.localToWorld(pos.clone());
+    const q = body.quaternion.clone().multiply(_q.setFromEuler(_e.set(rx, ry, 0)));
+    return { p, q };
+  }
+  function camPose(pos, rx = 0) {
+    const p = camera.localToWorld(pos.clone());
+    const q = camera.quaternion.clone().multiply(_q.setFromEuler(_e.set(rx, 0, 0)));
+    return { p, q };
+  }
+  function place(obj, a, b, u) {
+    obj.position.copy(a.p).lerp(b.p, u);
+    obj.quaternion.copy(a.q).slerp(b.q, u);
+  }
+
+  function update({ t, eye, pose = 'sit', face = 0, yaw, pitch, fov, raise, hold = 'phone', screen: scr = 'chat', clock, shake, mouse, press = 0 }) {
+    const stand = pose === 'stand' ? 1 : 0;
+    const lie = pose === 'lie';
+    const speed = lastEye && Math.abs(t - lastEye.t) < 0.5 ? eye.distanceTo(lastEye.p) / Math.max(1e-3, Math.abs(t - lastEye.t)) : 0;
+    lastEye = { p: eye.clone(), t };
     const walking = Math.min(1, speed / 0.8) * stand;
-    walkPhase = t * 9.5;
+    const walkPhase = t * 9.5;
     const bob = Math.sin(walkPhase) * 0.025 * walking;
-    // leichtes Atmen / Handkamera
     const idleY = Math.sin(t * 1.7) * 0.004 + Math.sin(t * 0.63) * 0.003;
-    const jitterYaw = Math.sin(t * 0.9) * 0.006 + Math.sin(t * 2.3) * 0.003;
-    const jitterPitch = Math.sin(t * 1.3 + 1) * 0.005;
+    const jYaw = Math.sin(t * 0.9) * 0.006 + Math.sin(t * 2.3) * 0.003 + (shake?.[1] ?? 0);
+    const jPitch = Math.sin(t * 1.3 + 1) * 0.005 + (shake?.[0] ?? 0);
 
-    camera.position.set(x, eye + bob + idleY, z - 0.04);
-    camera.rotation.set(pitch + jitterPitch, yaw + jitterYaw, Math.sin(walkPhase * 0.5) * 0.012 * walking);
+    camera.position.set(eye.x, eye.y + bob + idleY, eye.z);
+    camera.rotation.set(pitch + jPitch, yaw + jYaw, Math.sin(walkPhase * 0.5) * 0.012 * walking);
     if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
+    camera.updateMatrixWorld(true);
 
-    // Körper: sitzend leicht mitdrehen, stehend ganz
-    const bodyYaw = lerp(yaw * 0.3, yaw, stand);
-    body.position.set(x, 0, z);
+    const bodyYaw = face + (yaw - face) * (stand ? 1 : 0.3);
+    body.position.set(eye.x, 0, eye.z + 0.04);
     body.rotation.y = bodyYaw;
-    torso.position.set(0, eye - 0.5, 0.2);
-    thighs.position.set(0, SEAT_Y + 0.08, 0);
-    thighs.visible = stand < 0.5;
-
-    // Handy-Positionen (Körperkoordinaten, relativ zur Augenhöhe)
-    const relEye = eye;
-    const low = v3(0, relEye - 0.53, -0.3);
-    const high = v3(0, relEye - 0.3, -0.31);
-    const standLow = v3(-0.22, relEye - 0.72, -0.12);
-    const lowP = mix(low, standLow, stand);
-    phone.position.copy(mix(lowP, high, raise));
-    phone.rotation.set(lerp(lerp(-1.22, -0.2, stand), -0.72, raise), lerp(0.08, 0.4, stand) * (1 - raise), 0);
-    
     body.updateMatrixWorld(true);
-    // rechte Hand: am Handy (Daumen tippt) oder an der Maus / locker am Körper
-    const onPhone = raise > 0.5 || stand > 0.5;
-    handR.visible = thumbR.visible = onPhone;
-    handMouse.visible = !onPhone;
-    handMouse.position.set(0.34, 0.8, -0.6);
-    thumbR.position.y = -0.04 + Math.sin(t * 11) * 0.006 * raise;
+    const ey = eye.y;
+    torso.position.y = ey - 0.5;
+    torso.visible = !lie;
+    thighs.position.y = ey - 0.62;
+    thighs.visible = pose === 'sit';
 
-    const shoulderL = v3(-0.19, relEye - 0.38, 0.06), shoulderR = v3(0.19, relEye - 0.38, 0.06);
-    placeLimb(armL, shoulderL, localOf(handL).add(v3(-0.005, -0.02, 0.04)));
-    placeLimb(armR, shoulderR, (onPhone ? localOf(handR) : handMouse.position.clone()).add(v3(0.005, -0.02, 0.05)));
+    // Handy
+    phone.visible = hold === 'phone';
+    if (phone.visible) {
+      let low;
+      if (lie) low = camPose(v3(0.18, -0.42, -0.12), 0.6);
+      else if (stand) low = bodyPose(v3(-0.22, ey - 0.72, -0.12), -0.2, 0.4);
+      else low = bodyPose(v3(0, ey - 0.53, -0.3), -1.22);
+      const high = camPose(v3(0, -0.03, -0.31));
+      place(phone, low, high, raise);
+      thumbR.position.y = -0.04 + Math.sin(t * 11) * 0.006 * raise;
+    }
 
-    paintPhone(t, clock);
+    // Controller
+    pad.visible = hold === 'controller';
+    if (pad.visible) {
+      place(pad, bodyPose(v3(0, ey - 0.5, -0.28), 0.9), bodyPose(v3(0, ey - 0.36, -0.36), 0.75), raise);
+      padThumb.position.y = 0.03 - press * 0.012;
+    }
+
+    // rechte Hand an der Maus (Büro), wenn das Handy unten ist
+    const atMouse = mouse && hold === 'phone' && raise < 0.5 && pose === 'sit';
+    handR.visible = thumbR.visible = !atMouse;
+    handMouse.visible = !!atMouse;
+    if (atMouse) handMouse.position.copy(mouse);
+
+    // Arme (liegend unsichtbar)
+    armL.visible = armR.visible = !lie && hold !== 'none';
+    if (armL.visible) {
+      const shL = body.localToWorld(v3(-0.19, ey - 0.38, 0.06));
+      const shR = body.localToWorld(v3(0.19, ey - 0.38, 0.06));
+      const hl = hold === 'controller' ? padL : handL;
+      const hr = hold === 'controller' ? padR : (atMouse ? handMouse : handR);
+      const back = (o, s) => o.getWorldPosition(_w).clone().add(body.localToWorld(v3(s * 0.005, -0.02, 0.05)).sub(body.position));
+      placeLimb(armL, shL, back(hl, -1));
+      placeLimb(armR, shR, back(hr, 1));
+    }
+
+    if (phone.visible) paintPhone(t, clock, scr);
   }
 
   return { camera, update, phone };
@@ -140,12 +195,13 @@ function wrap(ctx, text, maxW) {
 
 function makePhonePainter(tex, ep) {
   let last = '';
-  return function paint(t, clock) {
+  return function paint(t, clock, scr = 'chat') {
     const msgs = ep.chat.filter((m) => m.t <= t);
-    const key = msgs.length + clock;
+    const key = scr + msgs.length + clock;
     if (key === last) return;
     last = key;
     const c = tex.userData.ctx, W = 400, H = 820;
+    if (scr === 'alarm') { paintAlarm(c, W, H, clock, ep); tex.needsUpdate = true; return; }
     c.clearRect(0, 0, W, H);
     // Hintergrund
     c.fillStyle = '#ece5dc';
@@ -237,4 +293,44 @@ function makePhonePainter(tex, ep) {
     c.restore();
     tex.needsUpdate = true;
   };
+}
+
+// Sperrbildschirm mit Wecker und Countdown-Widget
+function paintAlarm(c, W, H, clock, ep) {
+  const g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#2a1650'); g.addColorStop(0.55, '#ff5fae'); g.addColorStop(1, '#ffb36b');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.fillStyle = '#140a2a';
+  for (const [x, s] of [[0.15, 1], [0.86, 0.85]]) {
+    c.fillRect(W * x - 5, H * (0.55 + (1 - s) * 0.15), 10, H);
+    for (let k = 0; k < 6; k++) {
+      c.save(); c.translate(W * x, H * (0.55 + (1 - s) * 0.15)); c.rotate((k / 6) * Math.PI * 2);
+      c.fillRect(0, -5, 80 * s, 10); c.restore();
+    }
+  }
+  c.fillStyle = '#fff'; c.textAlign = 'center';
+  c.font = `700 24px ${FONT}`;
+  c.fillText(ep.dateLine || 'Mittwoch, 18. November', W / 2, 90);
+  c.font = `800 120px ${FONT}`;
+  c.fillText(clock, W / 2, 210);
+  // Wecker-Karte
+  c.fillStyle = 'rgba(255,255,255,0.92)';
+  roundRect(c, 24, 260, W - 48, 120, 22); c.fill();
+  c.fillStyle = '#111'; c.textAlign = 'left';
+  c.font = `800 24px ${FONT}`;
+  c.fillText('⏰ Wecker', 46, 300);
+  c.font = `900 34px ${FONT}`;
+  c.fillText('AUFSTEHEN 🌴', 46, 348);
+  // Countdown-Widget
+  c.fillStyle = 'rgba(20,10,42,0.85)';
+  roundRect(c, 24, 400, W - 48, 130, 22); c.fill();
+  c.fillStyle = '#ff8fc8'; c.font = `800 22px ${FONT}`;
+  c.fillText('GTA VI · Release', 46, 440);
+  c.fillStyle = '#fff'; c.font = `900 40px ${FONT}`;
+  const [hh, mm] = clock.split(':').map(Number);
+  const left = 24 * 60 - (hh * 60 + mm);
+  c.fillText(`noch ${Math.floor(left / 60)} Std ${left % 60} Min`, 46, 490);
+  c.fillStyle = 'rgba(255,255,255,0.7)'; c.font = `600 18px ${FONT}`;
+  c.fillText('heute 00:00 · Preload ✓ seit 10.11.', 46, 518);
+  c.textAlign = 'left';
 }

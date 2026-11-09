@@ -19,6 +19,9 @@
   #sub { left: calc(var(--u) * 6); right: calc(var(--u) * 6); top: 69%; text-align: center; font-weight: 900; font-size: calc(var(--u) * 5); line-height: 1.15; }
   #sub.think { font-style: italic; }
   #hook { left: calc(var(--u) * 6); right: calc(var(--u) * 6); top: 17%; text-align: center; font-weight: 900; font-size: calc(var(--u) * 5.6); line-height: 1.2; white-space: pre-line; }
+  #card { inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(5,3,14,.72); opacity: 0;
+          font-weight: 900; font-style: italic; font-size: calc(var(--u) * 9); color: #fff; text-align: center;
+          text-shadow: 0 0 calc(var(--u)*1.4) #ff3fa4, 0 0 calc(var(--u)*3.5) #ff3fa4; }
   #fade { inset: 0; background: #000; opacity: 0; }
   #end { inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0;
          background: radial-gradient(circle at 50% 45%, #2a1650 0%, #0b0618 70%); }
@@ -42,15 +45,16 @@
   <div class="ov" id="note"><div class="from"></div><div class="text"></div></div>
   <div class="ov stroke" id="sub"></div>
   <div class="ov stroke" id="hook"></div>
+  <div class="ov" id="card"></div>
   <div class="ov" id="fade"></div>
   <div class="ov" id="end"><div class="big"></div><div class="small"></div></div>
 </div>
 <div id="ui"><button id="play">▶</button><input id="scrub" type="range" min="0" max="70" step="0.01" value="0" /><span id="time">0.0 s</span></div>
 <script type="module">
 import * as THREE from 'three';
-import { buildScene } from './scene.js';
+import { buildWorld, PLACES } from './world.js';
 import { makePOV } from './pov.js';
-import { sample, step, resolveLook, activeLine, speaking, clockAt, activeNote } from './timeline.js';
+import { sample, step, resolveLook, activeLine, speaking, clockAt, countdownAt, activeNote, activeCard } from './timeline.js';
 
 const params = new URLSearchParams(location.search);
 const clean = params.get('hud') === '0';
@@ -84,8 +88,9 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.NoToneMapping;
 stage.prepend(renderer.domElement);
 
-const set = buildScene();
-const { scene } = set;
+const world = buildWorld();
+const { scene } = world;
+const office = world.sets.office;
 const pov = makePOV(scene, ep);
 const camera = pov.camera;
 
@@ -182,14 +187,15 @@ function renderFrame() {
 
 // ---- Overlays
 const $ = (id) => document.getElementById(id);
-const COLORS = { LENA: '#ff8fc8', CHEF: '#ffb347', DU: '#ffffff' };
+const COLORS = { LENA: '#ff8fc8', CHEF: '#ffb347', MO: '#c3b0ff', DU: '#ffffff' };
 const hookOn = params.get('hook') !== '0' && ep.hook;
 
 function setText(el, txt) { if (el.textContent !== txt) el.textContent = txt; }
 
 function overlays(t) {
   const clock = clockAt(ep, t);
-  setText($('place'), `${ep.place} · ${ep.day} ${clock}`);
+  const loc = step(ep.loc, t) || 'office';
+  setText($('place'), `${ep.places?.[loc] || PLACES[loc]} · ${step(ep.day, t) || ''} ${clock}`);
 
   const n = activeNote(ep, t);
   const note = $('note');
@@ -218,6 +224,12 @@ function overlays(t) {
     hook.style.opacity = Math.min(1, (ep.hook.t + ep.hook.dur - t) / 0.3);
   } else hook.style.opacity = 0;
 
+  const card = activeCard(ep, t);
+  if (card) {
+    setText($('card'), card.text);
+    $('card').style.opacity = Math.min(1, (t - card.t) / 0.15, (card.t + card.dur - t) / 0.25);
+  } else $('card').style.opacity = 0;
+
   let f = 0;
   for (const c of ep.cuts) f = Math.max(f, 1 - Math.abs(t - c) / 0.14);
   $('fade').style.opacity = Math.max(0, f);
@@ -232,49 +244,65 @@ function overlays(t) {
 
 // ---- Szene zum Zeitpunkt t
 let lastBoss = null;
+const flap = (on, t) => (on ? [1, 2, 1, 0, 2, 1][Math.floor(t * 12) % 6] : 0);
 function apply(t) {
+  const loc = step(ep.loc, t) || 'office';
+  world.setLocation(loc);
+  world.setDaylight(step(ep.daylight, t));
+  const set = world.sets[loc];
+  const [lx, ly, lz, face] = sample(ep.rig, t);
+  const eye = new THREE.Vector3(lx, ly, lz).add(set.origin);
   const [yaw, pitch] = sample(lookKeys, t);
   const [fov] = sample(ep.fov, t);
-  const [x, z, stand] = sample(ep.rig, t);
   const [raise] = sample(ep.phone, t);
+  const [press] = ep.press ? sample(ep.press, t) : [0];
   const clock = clockAt(ep, t);
   const [hh, mm] = clock.split(':').map(Number);
-
-  set.setDaylight(step(ep.daylight, t));
-  set.wallClock.userData.setTime(hh, mm);
-  const mon = step(ep.monitor, t);
-  if (mon === 'gta') {
-    const keyStart = ep.clock.filter((k) => k[0] <= t).at(-1)[0];
-    const secs = Math.max(0, 18 * 3600 - (hh * 3600 + mm * 60) - Math.floor(t - keyStart) - 17);
-    const pad = (v) => String(v).padStart(2, '0');
-    set.drawMonitor('gta', { countdown: `${pad((secs / 3600) | 0)}:${pad(((secs / 60) | 0) % 60)}:${pad(secs % 60)}` });
-  } else set.drawMonitor(mon);
-
-  pov.update({ t, x, z, stand, yaw, pitch, fov, raise, clock });
-
-  // Lena
-  const [turn] = sample(ep.lena, t);
-  const lena = set.lena;
-  lena.rotation.y = Math.PI / 2 + turn * 0.35;
-  lena.userData.head.rotation.y = turn * 0.95 + Math.sin(t * 0.8) * 0.04;
-  lena.userData.head.rotation.z = Math.sin(t * 1.1) * 0.02;
-  lena.userData.armR.rotation.x = turn < 0.5 ? Math.max(0, Math.sin(t * 9)) * 0.15 : 0; // tippt
   const who = speaking(ep, t);
-  const flap = (s) => (s ? [1, 2, 1, 0, 2, 1][Math.floor(t * 12) % 6] : 0);
-  lena.userData.setMouth(flap(who === 'LENA'));
 
-  // Chef
-  const [bx, bz, byaw] = sample(ep.boss, t);
-  const boss = set.boss;
-  boss.position.set(bx, 0, bz);
-  boss.rotation.y = byaw;
-  const bspeed = lastBoss && Math.abs(t - lastBoss.t) < 0.5 ? Math.hypot(bx - lastBoss.x, bz - lastBoss.z) / Math.max(1e-3, Math.abs(t - lastBoss.t)) : 0;
-  lastBoss = { x: bx, z: bz, t };
-  boss.userData.walk(t * 8, Math.min(1, bspeed / 0.6));
-  boss.userData.setMouth(flap(who === 'CHEF'));
-  boss.userData.head.rotation.z = who === 'CHEF' ? Math.sin(t * 5) * 0.04 : 0;
+  if (loc === 'office') {
+    office.wallClock.userData.setTime(hh, mm);
+    const mon = step(ep.monitor, t);
+    if (mon === 'gta') office.drawMonitor('gta', { countdown: countdownAt(ep, t, Math.floor(t * 1) % 60) });
+    else office.drawMonitor(mon);
 
-  set.update(t);
+    // Lena
+    const [turn] = sample(ep.lena, t);
+    const lena = office.lena;
+    lena.rotation.y = Math.PI / 2 + turn * 0.35;
+    lena.userData.head.rotation.y = turn * 0.95 + Math.sin(t * 0.8) * 0.04;
+    lena.userData.head.rotation.z = Math.sin(t * 1.1) * 0.02;
+    lena.userData.armR.rotation.x = turn < 0.5 ? Math.max(0, Math.sin(t * 9)) * 0.15 : 0;
+    lena.userData.setMouth(flap(who === 'LENA', t));
+
+    // Chef
+    const [bx, bz, byaw] = sample(ep.boss, t);
+    const boss = office.boss;
+    boss.position.set(bx, 0, bz);
+    boss.rotation.y = byaw;
+    const bspeed = lastBoss && Math.abs(t - lastBoss.t) < 0.5 ? Math.hypot(bx - lastBoss.x, bz - lastBoss.z) / Math.max(1e-3, Math.abs(t - lastBoss.t)) : 0;
+    lastBoss = { x: bx, z: bz, t };
+    boss.userData.walk(t * 8, Math.min(1, bspeed / 0.6));
+    boss.userData.setMouth(flap(who === 'CHEF', t));
+    boss.userData.head.rotation.z = who === 'CHEF' ? Math.sin(t * 5) * 0.04 : 0;
+  }
+  if (loc === 'living') {
+    const mode = step(ep.tv, t);
+    set.drawTV(mode, mode === 'countdown' ? { text: countdownAt(ep, t) } : { blink: Math.floor(t * 2.5) % 2 === 0 });
+  }
+  world.update(t);
+  // Mo nickt beim Sprechen
+  if (set.mo) {
+    set.mo.userData.head.rotation.z = who === 'MO' ? Math.sin(t * 9) * 0.07 : 0;
+    if (who === 'MO') set.mo.userData.head.rotation.y = 0.3;
+  }
+
+  pov.update({
+    t, eye, pose: step(ep.pose, t) || 'sit', face, yaw, pitch, fov, raise, press,
+    hold: step(ep.hold, t) || 'phone', screen: step(ep.screen, t) || 'chat', clock,
+    shake: set.shake?.(t), mouse: loc === 'office' ? office.mouse : null,
+  });
+
   overlays(t);
   renderFrame();
 }
@@ -314,6 +342,7 @@ window.__pov = {
   episode: ep,
   renderAt(time) { if (Math.abs(time - t) > 0.5) lastBoss = null; t = time; apply(time); },
   duration: ep.duration,
+  camera, world,
 };
 window.__ready = true;
 </script>

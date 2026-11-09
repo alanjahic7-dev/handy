@@ -80,6 +80,12 @@ function makeAudio(file, dur) {
     if (e.type === 'send') add(e.t, 0.18, (x) => Math.sin(2 * Math.PI * (500 + 2500 * x) * x) * env(x, 0.003, 0.05) * 0.3);
     if (e.type === 'cut') add(e.t - 0.1, 0.35, (x) => noise() * Math.sin(Math.PI * x / 0.35) * 0.18);
     if (e.type === 'bell') for (const [f, a] of [[880, 0.3], [1320, 0.15], [2200, 0.08]]) add(e.t, 2, (x) => Math.sin(2 * Math.PI * f * x) * env(x, 0.002, 0.6) * a);
+    if (e.type === 'alarm') for (let k = 0; k < 6; k++) add(e.t + k * 0.28, 0.2, (x) => Math.sign(Math.sin(2 * Math.PI * (k % 2 ? 1320 : 1760) * x)) * 0.12 * Math.min(1, x / 0.005, (0.2 - x) / 0.02));
+    if (e.type === 'boom') {
+      add(e.t, 1.6, (x) => Math.sin(2 * Math.PI * (70 - 30 * x) * x) * env(x, 0.005, 0.5) * 0.7);
+      for (const f of [220, 277.2, 329.6, 440]) add(e.t + 0.05, 2.5, (x) => Math.sin(2 * Math.PI * f * x) * env(x, 0.08, 1.2) * 0.12);
+    }
+    if (e.type === 'press') add(e.t, 0.05, (x) => noise() * env(x, 0.001, 0.008) * 0.5);
     if (e.type === 'sting') for (const f of [110, 164.8, 220, 277.2]) add(e.t, 2.4, (x) => Math.sin(2 * Math.PI * f * x + Math.sin(2 * Math.PI * 5 * x) * 0.3) * env(x, 0.05, 0.9) * 0.16);
   }
   const pcm = Buffer.alloc(44 + n * 2);

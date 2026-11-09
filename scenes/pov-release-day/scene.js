@@ -71,7 +71,7 @@ export function box(w, h, d, material, x = 0, y = 0, z = 0) {
   return m;
 }
 
-function cyl(rt, rb, h, material, seg = 16) {
+export function cyl(rt, rb, h, material, seg = 16) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), material);
   m.castShadow = true;
   m.receiveShadow = true;
@@ -157,7 +157,7 @@ function ceilingTex() {
   }, { repeat: [(ROOM.x1 - ROOM.x0) / 0.6, (ROOM.z1 - ROOM.z0) / 0.6] });
 }
 
-function lightPanelTex() {
+export function lightPanelTex() {
   return canvasTex(128, 128, (c, w, h) => {
     c.fillStyle = '#fffef6';
     c.fillRect(0, 0, w, h);
@@ -169,7 +169,7 @@ function lightPanelTex() {
   });
 }
 
-function skyTex(preset) {
+export function skyTex(preset) {
   return canvasTex(512, 512, (c, w, h) => {
     const g = c.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, preset.skyTop);
@@ -192,13 +192,17 @@ function skyTex(preset) {
       roundRect(c, x, y, 60 + r() * 120, 10 + r() * 10, 8);
       c.fill();
     }
+    if (preset.stars) {
+      c.fillStyle = '#ffffff';
+      for (let i = 0; i < 140; i++) c.fillRect(r() * w, r() * h * 0.6, 2, 2);
+    }
     // Meer-Glitzern
     c.fillStyle = 'rgba(255,255,255,0.35)';
     for (let i = 0; i < 60; i++) c.fillRect(r() * w, h * 0.8 + r() * h * 0.2, 6 + r() * 14, 2);
   });
 }
 
-function towerTex(base, lit) {
+export function towerTex(base, lit) {
   return canvasTex(64, 128, (c, w, h) => {
     c.fillStyle = base;
     c.fillRect(0, 0, w, h);
@@ -211,15 +215,18 @@ function towerTex(base, lit) {
 }
 
 // ---------------------------------------------------------------- Tageszeiten
+// sunElev = Sonnenhöhe; die Himmelsrichtung kommt vom jeweiligen Ort (Fensterseite)
 export const DAYLIGHT = {
-  morning: { skyTop: '#6fc0ee', skyMid: '#bfe3f2', skyLow: '#ffe2b8', sea: '#3fa3c8', cloud: 'rgba(255,255,255,0.75)', sun: '#fff0d4', sunI: 2.3, sunPos: [-24, 13, -8], hemiSky: '#dff1ff', hemiGround: '#8d8270', hemiI: 1.25, amb: 0.55, panel: 0.9, lit: false },
-  noon: { skyTop: '#4aa8ec', skyMid: '#9fd6f5', skyLow: '#e1f3f9', sea: '#2e94c0', cloud: 'rgba(255,255,255,0.85)', sun: '#ffffff', sunI: 2.5, sunPos: [-14, 26, 2], hemiSky: '#e8f6ff', hemiGround: '#8f8a80', hemiI: 1.35, amb: 0.6, panel: 0.9, lit: false },
-  afternoon: { skyTop: '#5aa2dc', skyMid: '#a8d2ee', skyLow: '#f8d9a2', sea: '#2f86b0', cloud: 'rgba(255,248,235,0.8)', sun: '#ffe1ae', sunI: 2.3, sunPos: [-22, 11, 7], hemiSky: '#fff0dc', hemiGround: '#8a7e70', hemiI: 1.15, amb: 0.5, panel: 0.9, lit: false },
-  sunset: { skyTop: '#33296a', skyMid: '#b2508a', skyLow: '#ff9a5c', sea: '#5b3f7a', cloud: 'rgba(255,170,140,0.7)', sunDisc: '#ffd27a', sun: '#ff9b62', sunI: 2.1, sunPos: [-30, 4.5, 3], hemiSky: '#ffb08a', hemiGround: '#4a3a5a', hemiI: 0.85, amb: 0.4, panel: 1.3, lit: true },
+  dawn: { skyTop: '#4a5fa8', skyMid: '#e9a3a8', skyLow: '#ffd59a', sea: '#7088c0', cloud: 'rgba(255,200,190,0.75)', sunDisc: '#ffe7a8', sun: '#ffc79a', sunI: 2.0, sunElev: 5, hemiSky: '#d8c8ff', hemiGround: '#6a5a70', hemiI: 1.0, amb: 0.45, panel: 1.0, lit: true },
+  morning: { skyTop: '#6fc0ee', skyMid: '#bfe3f2', skyLow: '#ffe2b8', sea: '#3fa3c8', cloud: 'rgba(255,255,255,0.75)', sun: '#fff0d4', sunI: 2.3, sunElev: 13, hemiSky: '#dff1ff', hemiGround: '#8d8270', hemiI: 1.25, amb: 0.55, panel: 0.9, lit: false },
+  noon: { skyTop: '#4aa8ec', skyMid: '#9fd6f5', skyLow: '#e1f3f9', sea: '#2e94c0', cloud: 'rgba(255,255,255,0.85)', sun: '#ffffff', sunI: 2.5, sunElev: 26, hemiSky: '#e8f6ff', hemiGround: '#8f8a80', hemiI: 1.35, amb: 0.6, panel: 0.9, lit: false },
+  afternoon: { skyTop: '#5aa2dc', skyMid: '#a8d2ee', skyLow: '#f8d9a2', sea: '#2f86b0', cloud: 'rgba(255,248,235,0.8)', sun: '#ffe1ae', sunI: 2.3, sunElev: 11, hemiSky: '#fff0dc', hemiGround: '#8a7e70', hemiI: 1.15, amb: 0.5, panel: 0.9, lit: false },
+  sunset: { skyTop: '#33296a', skyMid: '#b2508a', skyLow: '#ff9a5c', sea: '#5b3f7a', cloud: 'rgba(255,170,140,0.7)', sunDisc: '#ffd27a', sun: '#ff9b62', sunI: 2.1, sunElev: 4.5, hemiSky: '#ffb08a', hemiGround: '#4a3a5a', hemiI: 0.85, amb: 0.4, panel: 1.3, lit: true },
+  night: { skyTop: '#0b0822', skyMid: '#24134a', skyLow: '#4a2468', sea: '#100a26', cloud: 'rgba(90,60,150,0.45)', stars: true, sun: '#6f74ff', sunI: 0.5, sunElev: 18, hemiSky: '#3a2f80', hemiGround: '#0c0718', hemiI: 0.55, amb: 0.22, panel: 1.0, lit: true },
 };
 
 // ---------------------------------------------------------------- Möbel
-function makeDesk(topColor = '#d9c7a4') {
+export function makeDesk(topColor = '#d9c7a4') {
   const g = new THREE.Group();
   const top = toon(topColor);
   const leg = toon('#3a3d48');
@@ -258,7 +265,7 @@ function makeMonitor(screenTex) {
   return g;
 }
 
-function makeSticky(text, color = '#ffe66b', rot = 0) {
+export function makeSticky(text, color = '#ffe66b', rot = 0) {
   const t = canvasTex(128, 128, (c, w, h) => {
     c.fillStyle = color;
     c.fillRect(0, 0, w, h);
@@ -272,7 +279,7 @@ function makeSticky(text, color = '#ffe66b', rot = 0) {
   return m;
 }
 
-function makePlant(h = 0.9) {
+export function makePlant(h = 0.9) {
   const g = new THREE.Group();
   const pot = cyl(0.16, 0.12, 0.3, toon('#e8e2d4'));
   pot.position.y = 0.15;
@@ -287,7 +294,7 @@ function makePlant(h = 0.9) {
   return g;
 }
 
-function makeMug(text = 'GTA ODER NIX') {
+export function makeMug(text = 'GTA ODER NIX') {
   const g = new THREE.Group();
   const t = canvasTex(256, 64, (c, w, h) => {
     c.fillStyle = '#ffffff';
@@ -311,7 +318,7 @@ function makeMug(text = 'GTA ODER NIX') {
 }
 
 // Kalender an der Stellwand: 19. November rot eingekreist
-function calendarTex() {
+export function calendarTex() {
   return canvasTex(256, 320, (c, w, h) => {
     c.fillStyle = '#ffffff';
     c.fillRect(0, 0, w, h);
@@ -403,7 +410,7 @@ function bossFace(mouth) {
     c.fillStyle = '#c99070'; c.fillRect(7, 8, 2, 2); // Nase
   });
 }
-function nearest(t) { t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; }
+export function nearest(t) { t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; }
 
 function makeBoss() {
   const g = new THREE.Group();
@@ -461,10 +468,10 @@ function makeBoss() {
 }
 
 // ---------------------------------------------------------------- Bau
-export function buildScene() {
-  const scene = new THREE.Scene();
-  scene.name = 'POV_ReleaseDay_Office';
-  scene.background = new THREE.Color('#9fd6f5');
+// Büro als Gruppe (Ursprung = Welt-Ursprung). skyMat wird von allen Orten geteilt.
+export function buildOffice(skyMat) {
+  const scene = new THREE.Group();
+  scene.name = 'Office';
 
   const { x0, x1, z0, z1, h } = ROOM;
   const W = x1 - x0, D = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
@@ -517,14 +524,12 @@ export function buildScene() {
   }
 
   // ---- Draußen: Himmel, Meer, Skyline, Palmen
-  const skyMat = new THREE.MeshBasicMaterial({ toneMapped: false });
-  const skyTexs = Object.fromEntries(Object.entries(DAYLIGHT).map(([k, p]) => [k, skyTex(p)]));
   const sky = new THREE.Mesh(new THREE.PlaneGeometry(220, 110), skyMat);
   sky.rotation.y = Math.PI / 2;
   sky.position.set(-90, 22, cz);
   scene.add(sky);
   const outside = new THREE.Group();
-  const towersDay = [], towersLit = [];
+  const towersDay = [];
   const r = rng(85);
   const towerCols = ['#f4c7d9', '#bfe6e0', '#f6e3a8', '#d8c7f0', '#f3f0ea', '#a9d4ef'];
   for (let i = 0; i < 26; i++) {
@@ -560,19 +565,6 @@ export function buildScene() {
   }
   scene.add(outside);
 
-  // ---- Licht
-  const hemi = new THREE.HemisphereLight('#e8f6ff', '#8f8a80', 1.2);
-  scene.add(hemi);
-  const amb = new THREE.AmbientLight('#ffffff', 0.5);
-  scene.add(amb);
-  const sun = new THREE.DirectionalLight('#ffffff', 2.4);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 80 });
-  sun.shadow.bias = -0.0004;
-  sun.shadow.normalBias = 0.03;
-  sun.target.position.set(1, 0, 0.5);
-  scene.add(sun, sun.target);
   const fill = new THREE.PointLight('#fff4e0', 6, 9, 1.6);
   fill.position.set(0.6, 2.5, -0.3);
   scene.add(fill);
@@ -754,34 +746,18 @@ export function buildScene() {
   // ---- Monitor-Inhalte
   const drawMonitor = makeMonitorPainter(myScreen);
 
-  // ---- Tageslicht setzen
-  let currentDay = '';
-  function setDaylight(name) {
-    if (name === currentDay) return;
-    currentDay = name;
-    const p = DAYLIGHT[name];
-    skyMat.map = skyTexs[name];
-    skyMat.needsUpdate = true;
-    scene.background.set(p.skyTop);
-    sun.color.set(p.sun);
-    sun.intensity = p.sunI;
-    sun.position.set(...p.sunPos);
-    hemi.color.set(p.hemiSky);
-    hemi.groundColor.set(p.hemiGround);
-    hemi.intensity = p.hemiI;
-    amb.intensity = p.amb;
+  function setDaylight(p) {
     panelMat.color.setScalar(p.panel);
-    for (const b of towersDay) { b.material.map = b.userData.mats[p.lit ? 1 : 0]; b.material.needsUpdate = true; }
   }
-  setDaylight('morning');
 
   function update(t) {
     for (const n of npcs) n.userData.animate?.(t);
   }
 
   return {
-    scene, update, setDaylight, drawMonitor,
+    group: scene, update, setDaylight, drawMonitor, towers: towersDay,
     lena, boss, wallClock,
+    mouse: new THREE.Vector3(0.34, 0.8, -0.6),
   };
 }
 

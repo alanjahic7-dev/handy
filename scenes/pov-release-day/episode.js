@@ -1,105 +1,129 @@
-// Drehbuch: „POV: GTA 6 kommt heute raus – und du musst noch arbeiten“
+// Drehbuch: „POV: Heute Nacht um 00:00 kommt GTA 6 raus“
 //
-// Alle Zeiten in Sekunden. Neue Folgen = diese Datei kopieren und umschreiben
-// (?ep=episode-2 lädt episode-2.js).
+// Ein ganzer Tag (Mi, 18.11.) bis zum Release um 00:00 Uhr am 19.11. – Preload lief schon seit 10.11.
+// Alle Zeiten in Sekunden. Neue Folgen = Datei kopieren und umschreiben (?ep=episode-2).
 //
-// Sprecher-Farben: LENA (pink), CHEF (orange), DU (weiß, think = Gedanke, kursiv)
+// Orte (loc): bedroom, kitchen, bus, office, living – Koordinaten in rig sind lokal zum Ort.
+// Sprecher: DU (weiß, think = Gedanke), LENA (pink), CHEF (orange), MO (lila)
 
 const PI = Math.PI;
 
 export default {
-  id: 'release-day-arbeit',
-  title: 'POV: GTA 6 kommt heute raus – und du musst noch arbeiten',
-  place: 'BÜRO · 3. OG',
-  day: 'DO',
-  duration: 70,
+  id: 'release-day',
+  title: 'POV: Heute Nacht um 00:00 kommt GTA 6 raus',
+  duration: 88,
   chatTitle: 'Leonida Crew 🌴',
+  dateLine: 'Mittwoch, 18. November',
 
-  // Text oben in der Mitte für die ersten Sekunden (TikTok-Hook). ?hook=0 blendet ihn aus.
-  hook: { t: 0, dur: 3.2, text: 'POV: GTA 6 kommt heute raus\nund du musst noch arbeiten 💀' },
+  // Hook: Vorgriff auf 23:59:56 mit Text, dann „18 STUNDEN VORHER“
+  hook: { t: 0, dur: 3.5, text: 'POV: Heute Nacht um 00:00\nkommt GTA 6 raus 🌴' },
+  cards: [{ t: 3.6, dur: 1.7, text: '18 STUNDEN VORHER' }],
+  cuts: [3.6, 16, 27.2, 40, 46, 54, 62, 68],
 
-  // harte Schnitte (Zeitsprung) – kurze Abblende
-  cuts: [14, 38, 52],
+  loc: [[0, 'living'], [3.6, 'bedroom'], [16, 'kitchen'], [27.2, 'bus'], [40, 'office'], [62, 'living']],
+  day: [[0, 'MI'], [79, 'DO']],
+  clock: [
+    [0, '23:59:56', true], [3.6, '06:00'], [10.4, '06:01'], [16, '07:10'], [27.2, '07:42'],
+    [40, '09:03'], [46, '13:40'], [54, '16:59'], [57.6, '17:00'], [62, '23:41'], [68, '23:59:49', true],
+  ],
+  daylight: [[0, 'night'], [3.6, 'dawn'], [16, 'morning'], [46, 'noon'], [54, 'sunset'], [62, 'night']],
 
-  clock: [[0, '08:59'], [6.2, '09:00'], [14, '11:47'], [38, '14:12'], [52, '16:58'], [56.6, '16:59'], [59.6, '17:00']],
-  daylight: [[0, 'morning'], [14, 'noon'], [38, 'afternoon'], [52, 'sunset']],
-  monitor: [[0, 'mail'], [14, 'excel'], [38, 'gta'], [45.3, 'excel'], [60.2, 'lock']],
+  // Körper: [t, x, Augenhöhe, z, Körperrichtung] (lokal zum Ort) + Haltung
+  rig: [
+    [0, 0, 1.12, 1.45, 0], [3.59, 0, 1.12, 1.45, 0],
+    [3.6, -1.28, 0.74, -1.72, PI], [11.2, -1.28, 0.74, -1.72, PI], [12.2, -0.72, 1.12, -0.9, 4.71], [15.99, -0.72, 1.12, -0.9, 4.71],
+    [16, 0, 1.17, 0.48, 0], [27.19, 0, 1.17, 0.48, 0],
+    [27.2, -0.85, 1.17, 0.36, 0], [39.99, -0.85, 1.17, 0.36, 0],
+    [40, 0, 1.17, 0.14, 0], [59.0, 0, 1.17, 0.14, 0], [59.8, -0.15, 1.52, 0.55, 0], [61.99, -0.95, 1.52, 1.75, 0],
+    [62, 0, 1.12, 1.45, 0], [88, 0, 1.12, 1.45, 0],
+  ],
+  pose: [[0, 'sit'], [3.6, 'lie'], [11.8, 'sit'], [59.4, 'stand'], [62, 'sit']],
 
-  // Kopf: [t, Blickziel] oder [t, yaw, pitch]
+  // Kopf: [t, Blickziel] (nur Büro: monitor, clock, lena, window, bossLeft) oder [t, yaw, pitch]
   look: [
-    [0, 'monitor'], [2.1, 'monitor'], [2.8, 'phone'], [9.3, 'phone'], [10.1, 'lena'], [13.9, 'lena'],
-    [14, 'clock'], [17.0, 'clock'], [17.7, 'monitor'], [20.4, 'monitor'], [21.2, -1.95, 0.08], [22.3, -1.95, 0.08],
-    [23.0, 'monitor'], [23.4, 'monitor'], [24.0, 'bossLeft'], [29.3, 'bossLeft'], [29.7, 'lap'], [30.5, 'lap'],
-    [30.9, 'bossLeft'], [35.7, 'bossLeft'], [36.3, 'lena'], [37.9, 'lena'],
-    [38, 'monitor'], [39.7, 'monitor'], [40.4, 'phone'], [43.8, 'phone'], [44.3, 'lena'], [45.0, 'lena'],
-    [45.4, 'monitor'], [46.0, 'monitor'], [46.6, 'clock'], [51.9, 'clock'],
-    [52, 'window'], [55.2, 'window'], [55.9, 'clock'], [59.9, 'clock'], [60.3, 'lena'], [60.9, 'lena'],
-    [61.8, -2.7, 0.0], [63.6, -3.0, 0.02], [64.1, -3.12, 0.1], [70, -3.12, 0.1],
+    [0, 0, 0.03], [3.59, 0, 0.03],
+    [3.6, PI, 1.3], [9.0, PI, 1.3], [9.8, PI, 0.32], [11.2, PI, 0.32], [12.2, 4.38, 0.05], [13.4, 4.38, 0.05], [14.0, 4.02, 0.12], [15.99, 4.02, 0.12],
+    [16, 0, -0.85], [17.4, 0, -0.85], [18.2, 0.42, 0.03], [20.4, 0.42, 0.03], [21.0, 0, 0.0], [27.19, 0, 0.0],
+    [27.2, 1.25, -0.02], [30.8, 1.2, -0.02], [31.4, 0.85, 0.05], [34.2, 1.7, 0.05], [35.0, 0.3, -0.3], [39.99, 0.3, -0.3],
+    [40, 'monitor'], [42.4, 'monitor'], [42.9, 'lena'], [43.9, 'lena'], [44.3, 'monitor'], [45.99, 'monitor'],
+    [46, 'clock'], [48.2, 'clock'], [48.8, 'bossLeft'], [53.99, 'bossLeft'],
+    [54, 'window'], [55.0, 'window'], [55.6, 'clock'], [57.8, 'clock'], [58.2, 'lena'], [59.2, 'lena'], [60.0, -2.7, 0.0], [61.99, -3.0, 0.02],
+    [62, 0, 0.03], [62.8, 0, 0.03], [63.2, -1.55, -0.05], [65.2, -1.55, -0.05], [65.7, 0, 0.03], [67.99, 0, 0.03],
+    [68, 0, 0.03], [88, 0, 0.03],
   ],
-  // Brennweite: 100 = Weitwinkel, kleiner = Zoom (z. B. auf Uhr oder Handy)
+  // Brennweite: 100 = Weitwinkel, kleiner = Zoom
   fov: [
-    [0, 100], [2.1, 100], [2.8, 52], [9.3, 52], [10.0, 100], [13.9, 100],
-    [14, 36], [17.0, 36], [17.7, 100], [29.3, 100], [29.7, 62], [30.5, 62], [30.9, 100], [39.7, 100], [40.4, 52], [43.8, 52], [44.4, 100],
-    [46.0, 100], [46.6, 36], [51.9, 36], [52, 100], [55.2, 100], [55.9, 36], [59.9, 36], [60.4, 100],
-    [64.0, 100], [64.6, 78], [70, 78],
+    [0, 80], [3.59, 58],
+    [3.6, 100], [5.0, 100], [5.4, 62], [8.6, 62], [9.2, 100], [13.4, 100], [14.0, 30], [15.99, 30],
+    [16, 72], [17.4, 72], [18.2, 34], [20.4, 34], [21.0, 95], [27.19, 95],
+    [27.2, 100], [34.6, 100], [35.2, 60], [39.99, 60],
+    [40, 62], [42.4, 62], [42.9, 100], [43.9, 100], [44.3, 62], [45.99, 62],
+    [46, 36], [48.2, 36], [48.8, 100], [53.99, 100],
+    [54, 100], [55.0, 100], [55.6, 36], [57.8, 36], [58.2, 100], [61.99, 100],
+    [62, 100], [67.99, 100],
+    [68, 100], [79, 50], [82.1, 50], [83.5, 25], [88, 25],
   ],
-  // Handy: 0 = im Schoß, 1 = vor dem Gesicht
-  phone: [[0, 0], [2.0, 0], [2.7, 1], [9.3, 1], [9.9, 0], [39.6, 0], [40.3, 1], [43.8, 1], [44.3, 0]],
-  // Körper: [t, x, z, stehen 0..1]
-  rig: [[0, 0, 0.18, 0], [60.8, 0, 0.18, 0], [61.6, -0.15, 0.55, 1], [63.4, -0.85, 1.55, 1], [64.0, -0.95, 1.75, 1]],
-  // Lena: 0 = schaut auf ihren Monitor, 1 = schaut zu dir
-  lena: [[0, 0], [9.2, 0], [9.7, 1], [13.9, 1], [14, 0], [35.6, 0], [36.0, 1], [37.9, 1], [38, 0], [43.9, 0], [44.2, 1], [45.6, 1], [46.0, 0], [59.8, 0], [60.1, 1], [70, 1]],
-  // Chef: [t, x, z, Blickrichtung]
+  // in der Hand: phone / controller; raise 0 = unten, 1 = vor dem Gesicht / angehoben
+  hold: [[0, 'controller'], [3.6, 'phone'], [62, 'controller']],
+  phone: [[0, 1], [3.59, 1], [3.6, 0], [4.7, 0], [5.4, 1], [8.6, 1], [9.2, 0], [34.6, 0], [35.2, 1], [39.99, 1], [40, 0], [67.99, 0], [68, 1], [88, 1]],
+  screen: [[0, 'chat'], [3.6, 'alarm'], [16, 'chat']],
+  press: [[0, 0], [82.0, 0], [82.12, 1], [82.3, 0]],
+
+  // Bildschirme
+  monitor: [[0, 'gta'], [44.1, 'excel'], [59.6, 'lock']],
+  tv: [[0, 'countdown'], [79, 'flash'], [79.25, 'title'], [82.3, 'loading']],
+
+  // Büro-Figuren
+  lena: [[0, 0], [42.5, 0], [42.8, 1], [44.0, 1], [44.3, 0], [57.9, 0], [58.1, 1], [88, 1]],
   boss: [
-    [0, 6.3, 1.6, PI], [19.0, 6.3, 1.6, PI], [21.6, 2.4, 1.5, PI], [23.0, -0.9, 1.25, PI * 0.8], [23.9, -1.2, -0.05, 0],
-    [35.8, -1.2, -0.05, 0], [37.9, -1.4, 3.0, -PI / 2],
-    [38, 6.3, 1.6, PI], [62.4, 6.3, 1.6, PI], [62.4, 1.4, 2.1, PI], [63.9, -0.95, 2.72, PI / 2], [70, -0.95, 2.72, PI / 2],
+    [0, 6.3, 1.6, PI], [45.99, 6.3, 1.6, PI], [46, -1.2, -0.05, 0], [52.9, -1.2, -0.05, 0], [53.99, -1.4, 1.6, -PI / 2],
+    [54, 6.3, 1.6, PI], [88, 6.3, 1.6, PI],
   ],
 
-  // Gruppenchat auf dem Handy (notify = Benachrichtigung oben, wenn das Handy unten ist)
   chat: [
-    { t: 1.0, from: 'Kevin', text: 'HEUTE. IST. DER. TAG. 🔥🔥🔥', notify: true },
-    { t: 3.5, from: 'Mo', text: 'hab kein auge zugemacht lol' },
-    { t: 4.9, from: 'Kevin', text: '18 uhr alle online. KEINE ausreden' },
-    { t: 6.7, me: true, text: 'bin bis 17 uhr auf arbeit 💀' },
-    { t: 8.2, from: 'Kevin', text: 'kündige.' },
-    { t: 29.0, from: 'Kevin', text: 'falls dein chef fragt: SAG NEIN', notify: true },
-    { t: 39.0, from: 'Mo', text: 'preload fertig ✅', img: 'preload', notify: true },
-    { t: 41.4, from: 'Kevin', text: 'meiner hängt bei 99% 😭' },
-    { t: 42.8, me: true, text: 'hab heute um 5 uhr morgens geladen 😎' },
-    { t: 53.6, from: 'Kevin', text: 'wir sind alle in der lobby. WO BIST DU', notify: true },
+    { t: 29.0, from: 'Kevin', text: 'HEUTE NACHT 00:00 🔥🔥🔥', notify: true },
+    { t: 35.6, from: 'Kevin', text: 'preload bei allen fertig?' },
+    { t: 36.9, me: true, text: 'seit dem 10. november 😎' },
+    { t: 38.2, from: 'Mo', text: 'ich hol heute abend pizza 🍕' },
+    { t: 64.4, from: 'Kevin', text: 'alle im call? 🎧', notify: true },
+    { t: 79.5, from: 'Kevin', text: 'ES IST LIVE 🔥🔥🔥', notify: true },
   ],
   chatColors: { Kevin: '#2e9f5b', Mo: '#7b5cff' },
-
-  // andere Benachrichtigungen
-  notes: [
-    { t: 18.3, from: 'Mama ❤️', text: 'Schatz vergiss heute nicht zu essen wenn du zockst 🍝', dur: 2.8 },
-  ],
+  notes: [],
 
   lines: [
-    { t: 10.0, who: 'LENA', text: 'Morgen! Warum grinst du so?' },
-    { t: 11.9, who: 'LENA', text: 'Ach stimmt… heute ist ja GTA.' },
-    { t: 14.5, who: 'DU', think: true, text: 'Wie kann es erst 11:47 sein?' },
-    { t: 20.6, who: 'DU', think: true, text: 'Oh nein. Er kommt hierher.' },
-    { t: 24.2, who: 'CHEF', text: 'Kurze Frage…' },
-    { t: 25.4, who: 'CHEF', text: 'Kannst du heute bis 20 Uhr bleiben?' },
-    { t: 27.5, who: 'CHEF', text: 'Der Quartalsbericht muss raus.' },
-    { t: 31.0, who: 'DU', text: 'Heute geht’s leider nicht… Zahnarzt.' },
-    { t: 33.2, who: 'CHEF', text: 'Um 18 Uhr?' },
-    { t: 34.4, who: 'DU', text: '…Notfall.' },
-    { t: 35.2, who: 'CHEF', text: 'Hm. Na gut.' },
-    { t: 36.4, who: 'LENA', text: 'Zahnarzt. Klar. 😏' },
-    { t: 44.3, who: 'LENA', text: 'Psst! Tab zu – der Chef!' },
-    { t: 47.0, who: 'DU', think: true, text: 'Immer noch 14:12?!' },
-    { t: 49.0, who: 'DU', think: true, text: 'Die Uhr ist kaputt. Die MUSS kaputt sein.' },
-    { t: 52.6, who: 'DU', think: true, text: 'Noch zwei Minuten.' },
-    { t: 57.4, who: 'DU', think: true, text: 'Drei… zwei… eins…', slow: 1.4 },
-    { t: 60.3, who: 'LENA', text: 'LAUF!' },
-    { t: 64.6, who: 'CHEF', text: 'Ach… eine Sache noch.' },
-    { t: 66.6, who: 'DU', think: true, text: 'Nein.' },
+    { t: 5.8, who: 'DU', think: true, text: 'Mittwoch, 18. November.' },
+    { t: 7.4, who: 'DU', think: true, text: 'Heute Nacht ist es so weit.' },
+    { t: 9.9, who: 'DU', think: true, text: 'Noch 18 Stunden.' },
+    { t: 14.1, who: 'DU', think: true, text: 'Preload seit dem 10. drauf.' },
+    { t: 18.4, who: 'DU', think: true, text: 'Sogar im Fernsehen.' },
+    { t: 21.1, who: 'MO', text: 'Bist du heute überhaupt ansprechbar?' },
+    { t: 23.2, who: 'DU', text: 'Nein.' },
+    { t: 24.0, who: 'MO', text: 'Heute Nacht: Pizza, Energy, kein Schlaf?' },
+    { t: 26.2, who: 'DU', text: 'Deal.' },
+    { t: 28.0, who: 'DU', think: true, text: 'Noch 16 Stunden.' },
+    { t: 30.0, who: 'DU', think: true, text: 'Was mach ich zuerst?' },
+    { t: 31.8, who: 'DU', think: true, text: 'Erstmal nur rumfahren… die Stadt ansehen.' },
+    { t: 33.9, who: 'DU', think: true, text: '…oder direkt Chaos.' },
+    { t: 41.0, who: 'DU', think: true, text: 'Noch 14 Stunden 56 Minuten.' },
+    { t: 42.9, who: 'LENA', text: 'Tab zu – der Chef!' },
+    { t: 46.5, who: 'DU', think: true, text: 'Wie kann es erst 13:40 sein?' },
+    { t: 49.0, who: 'CHEF', text: 'Kannst du heute länger bleiben?' },
+    { t: 50.9, who: 'DU', text: 'Heute nicht. Wirklich nicht.' },
+    { t: 52.6, who: 'CHEF', text: '…Na gut.' },
+    { t: 55.8, who: 'DU', think: true, text: 'Drei… zwei… eins…', slow: 1.3 },
+    { t: 58.2, who: 'LENA', text: 'Viel Spaß heute Nacht! 🌴' },
+    { t: 63.3, who: 'MO', text: 'Noch 19 Minuten. Ich halt das nicht aus.' },
+    { t: 65.8, who: 'DU', think: true, text: 'Jahrelang gewartet. Die 19 Minuten schaff ich.' },
+    { t: 71.0, who: 'DU', think: true, text: 'Gleich ist es so weit.' },
+    { t: 76.0, who: 'MO', text: 'DREI!' },
+    { t: 77.0, who: 'MO', text: 'ZWEI!' },
+    { t: 78.0, who: 'MO', text: 'EINS!' },
+    { t: 79.3, who: 'MO', text: 'JAAAA!' },
+    { t: 80.6, who: 'DU', text: 'Willkommen in Leonida.' },
   ],
 
-  sfx: [{ t: 59.6, type: 'bell' }, { t: 67.6, type: 'sting' }],
+  sfx: [{ t: 3.7, type: 'alarm' }, { t: 57.6, type: 'bell' }, { t: 79, type: 'boom' }, { t: 82.12, type: 'press' }, { t: 83.6, type: 'sting' }],
 
-  end: { t: 67.6, text: 'TEIL 2 FOLGT', sub: 'Folgen, damit du ihn nicht verpasst' },
+  end: { t: 83.6, text: 'WIR SEHEN UNS IN LEONIDA 🌴', sub: 'Folgen für Teil 2: Die erste Nacht' },
 };
