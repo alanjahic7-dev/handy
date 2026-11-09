@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>POV Release Day</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: Inter, "Arial Black", Arial, sans-serif; }
+  #stage { position: relative; margin: 0 auto; overflow: hidden; background: #000; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .ov { position: absolute; pointer-events: none; }
+  .stroke { color: #fff; -webkit-text-stroke: calc(var(--u) * 0.55) #111; paint-order: stroke fill; }
+  #place { left: calc(var(--u) * 4); top: calc(var(--u) * 4.2); font-weight: 900; font-size: calc(var(--u) * 3.3); letter-spacing: 0.02em; white-space: nowrap; }
+  #note { left: calc(var(--u) * 5); right: calc(var(--u) * 5); top: calc(var(--u) * 7.5); background: #fbf8ee; border: calc(var(--u) * 0.55) solid #1a1a22;
+          border-radius: calc(var(--u) * 2.6); padding: calc(var(--u) * 2.2) calc(var(--u) * 3.2); box-shadow: 0 calc(var(--u) * 0.8) 0 rgba(0,0,0,.35);
+          transform: translateY(-160%); transition: none; }
+  #note .from { font-weight: 800; font-size: calc(var(--u) * 3); color: #222; }
+  #note .text { font-weight: 800; font-size: calc(var(--u) * 4.4); color: #111; margin-top: calc(var(--u) * 0.6); line-height: 1.15; }
+  #sub { left: calc(var(--u) * 6); right: calc(var(--u) * 6); top: 69%; text-align: center; font-weight: 900; font-size: calc(var(--u) * 5); line-height: 1.15; }
+  #sub.think { font-style: italic; }
+  #hook { left: calc(var(--u) * 6); right: calc(var(--u) * 6); top: 17%; text-align: center; font-weight: 900; font-size: calc(var(--u) * 5.6); line-height: 1.2; white-space: pre-line; }
+  #card { inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(5,3,14,.72); opacity: 0;
+          font-weight: 900; font-style: italic; font-size: calc(var(--u) * 9); color: #fff; text-align: center;
+          text-shadow: 0 0 calc(var(--u)*1.4) #ff3fa4, 0 0 calc(var(--u)*3.5) #ff3fa4; }
+  #fade { inset: 0; background: #000; opacity: 0; }
+  #end { inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0;
+         background: radial-gradient(circle at 50% 45%, #2a1650 0%, #0b0618 70%); }
+  #end .big { font-weight: 900; font-size: calc(var(--u) * 12); color: #ffd6ef; text-shadow: 0 0 calc(var(--u)*1.5) #ff3fa4, 0 0 calc(var(--u)*4) #ff3fa4; font-style: italic; }
+  #end .small { margin-top: calc(var(--u) * 3); font-weight: 800; font-size: calc(var(--u) * 4); color: #7ff3ff; text-shadow: 0 0 calc(var(--u)*1.2) #19c6e0; }
+  #ui { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; align-items: center; padding: 8px 12px; background: rgba(10,10,18,.8); color: #fff; font: 13px system-ui, sans-serif; }
+  #ui input[type=range] { flex: 1; }
+  #ui button { background: #ff3fa4; color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; font-weight: 700; cursor: pointer; }
+  body.clean #ui { display: none; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "../../node_modules/three/build/three.module.js",
+  "three/addons/": "../../node_modules/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="stage">
+  <div class="ov stroke" id="place"></div>
+  <div class="ov" id="note"><div class="from"></div><div class="text"></div></div>
+  <div class="ov stroke" id="sub"></div>
+  <div class="ov stroke" id="hook"></div>
+  <div class="ov" id="card"></div>
+  <div class="ov" id="fade"></div>
+  <div class="ov" id="end"><div class="big"></div><div class="small"></div></div>
+</div>
+<div id="ui"><button id="play">▶</button><input id="scrub" type="range" min="0" max="70" step="0.01" value="0" /><span id="time">0.0 s</span></div>
+<script type="module">
+import * as THREE from 'three';
+import { buildWorld, PLACES } from './world.js';
+import { makePOV } from './pov.js';
+import { sample, step, resolveLook, activeLine, speaking, clockAt, countdownAt, activeNote, activeCard } from './timeline.js';
+
+const params = new URLSearchParams(location.search);
+const clean = params.get('hud') === '0';
+if (clean) document.body.classList.add('clean');
+const ep = (await import(`./${params.get('ep') || 'episode'}.js`)).default;
+const lookKeys = resolveLook(ep.look);
+
+// Bildgröße: fest (Render) oder ins Fenster eingepasst (9:16)
+const fixedSize = params.has('w');
+let W = +params.get('w') || 1080, H = +params.get('h') || 1920;
+const stage = document.getElementById('stage');
+function fitStage() {
+  let w = W, h = H;
+  if (!fixedSize) {
+    const availH = innerHeight - (clean ? 0 : 44);
+    h = Math.min(availH, innerWidth * 16 / 9);
+    w = h * 9 / 16;
+  }
+  stage.style.width = w + 'px';
+  stage.style.height = h + 'px';
+  stage.style.setProperty('--u', (w / 100) + 'px');
+  return [w, h];
+}
+let [CW, CH] = fitStage();
+
+const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+renderer.setPixelRatio(fixedSize ? 1 : Math.min(devicePixelRatio, 2));
+renderer.setSize(CW, CH, false);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.toneMapping = THREE.NoToneMapping;
+stage.prepend(renderer.domElement);
+
+const world = buildWorld();
+const { scene } = world;
+const office = world.sets.office;
+const pov = makePOV(scene, ep);
+const camera = pov.camera;
+
+// ---- Comic-Look: Farbbild + Normalen/Tiefe -> Konturen, dann Fischauge
+//   ?look=pixel  -> zusätzlich grob verpixelt (Vice-Files-Stil)
+//   ?lines=1.6   -> Strichstärke in Pixeln, ?fisheye=0.55 -> Krümmung (0 = aus)
+const pixel = params.get('look') === 'pixel';
+const lowres = +params.get('lowres') || 360;
+const rtColor = new THREE.WebGLRenderTarget(1, 1, { samples: pixel ? 0 : 4, type: THREE.HalfFloatType });
+const rtND = new THREE.WebGLRenderTarget(1, 1, { depthTexture: new THREE.DepthTexture(1, 1) });
+for (const rt of [rtColor, rtND]) {
+  const f = pixel ? THREE.NearestFilter : THREE.LinearFilter;
+  rt.texture.minFilter = rt.texture.magFilter = f;
+}
+const normalMat = new THREE.MeshNormalMaterial();
+const post = new THREE.ShaderMaterial({
+  uniforms: {
+    tColor: { value: rtColor.texture }, tNormal: { value: rtND.texture }, tDepth: { value: rtND.depthTexture },
+    res: { value: new THREE.Vector2() }, k: { value: +(params.get('fisheye') ?? 0.55) }, line: { value: +(params.get('lines') ?? 1.6) },
+    cn: { value: camera.near }, cf: { value: camera.far }, ink: { value: new THREE.Color('#17131f') },
+  },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tColor, tNormal, tDepth; uniform vec2 res; uniform float k, line, cn, cf; uniform vec3 ink;
+    varying vec2 vUv;
+    float lin(vec2 uv){ float z = texture2D(tDepth, uv).x * 2.0 - 1.0; return 2.0 * cn * cf / (cf + cn - z * (cf - cn)); }
+    vec3 nrm(vec2 uv){ return texture2D(tNormal, uv).xyz * 2.0 - 1.0; }
+    vec3 toSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1.0/2.4)) - 0.055, step(0.0031308, c)); }
+    void main(){
+      float a = res.x / res.y;
+      vec2 p = (vUv - 0.5) * vec2(a, 1.0);
+      float rmax2 = 0.25 * (a * a + 1.0);
+      p *= (1.0 + k * dot(p, p)) / (1.0 + k * rmax2);
+      vec2 uv = p / vec2(a, 1.0) + 0.5;
+      vec3 col = texture2D(tColor, uv).rgb;
+      vec2 o = line / res;
+      float d0 = lin(uv);
+      float dx = lin(uv + vec2(o.x, 0.0)) + lin(uv - vec2(o.x, 0.0)) - 2.0 * d0;
+      float dy = lin(uv + vec2(0.0, o.y)) + lin(uv - vec2(0.0, o.y)) - 2.0 * d0;
+      float eD = smoothstep(0.012, 0.03, max(abs(dx), abs(dy)) / d0);
+      vec3 n0 = nrm(uv);
+      float eN = 0.0;
+      eN = max(eN, 1.0 - dot(n0, nrm(uv + vec2(o.x, 0.0))));
+      eN = max(eN, 1.0 - dot(n0, nrm(uv - vec2(o.x, 0.0))));
+      eN = max(eN, 1.0 - dot(n0, nrm(uv + vec2(0.0, o.y))));
+      eN = max(eN, 1.0 - dot(n0, nrm(uv - vec2(0.0, o.y))));
+      eN = smoothstep(0.18, 0.4, eN) * smoothstep(40.0, 8.0, d0);
+      float e = max(eD, eN);
+      col = toSRGB(clamp(col, 0.0, 1.0));
+      float l = dot(col, vec3(0.299, 0.587, 0.114));
+      col = mix(vec3(l), col, 1.12);
+      col = mix(col, ink, e * 0.92);
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+  depthTest: false, depthWrite: false,
+});
+const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), post);
+const postScene = new THREE.Scene();
+postScene.add(quad);
+const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+function resizeRT() {
+  const pr = renderer.getPixelRatio();
+  let w = Math.round(CW * pr), h = Math.round(CH * pr);
+  if (pixel) { w = Math.round(lowres * CW / CH); h = lowres; }
+  rtColor.setSize(w, h);
+  rtND.setSize(w, h);
+  post.uniforms.res.value.set(w, h);
+  camera.aspect = CW / CH;
+  camera.updateProjectionMatrix();
+}
+resizeRT();
+
+const noOutline = [];
+scene.traverse((o) => { if (o.isMesh && o.material?.transparent) noOutline.push(o); });
+
+function renderFrame() {
+  renderer.setRenderTarget(rtColor);
+  renderer.render(scene, camera);
+  for (const o of noOutline) o.visible = false;
+  const bg = scene.background;
+  scene.background = null;
+  scene.overrideMaterial = normalMat;
+  renderer.setRenderTarget(rtND);
+  renderer.setClearColor(0x8080ff, 1);
+  renderer.clear();
+  renderer.render(scene, camera);
+  scene.overrideMaterial = null;
+  scene.background = bg;
+  for (const o of noOutline) o.visible = true;
+  renderer.setRenderTarget(null);
+  renderer.render(postScene, postCam);
+}
+
+// ---- Overlays
+const $ = (id) => document.getElementById(id);
+const COLORS = { LENA: '#ff8fc8', CHEF: '#ffb347', MO: '#c3b0ff', DU: '#ffffff' };
+const hookOn = params.get('hook') !== '0' && ep.hook;
+
+function setText(el, txt) { if (el.textContent !== txt) el.textContent = txt; }
+
+function overlays(t) {
+  const clock = clockAt(ep, t);
+  const loc = step(ep.loc, t) || 'office';
+  setText($('place'), `${ep.places?.[loc] || PLACES[loc]} · ${step(ep.day, t) || ''} ${clock}`);
+
+  const n = activeNote(ep, t);
+  const note = $('note');
+  if (n) {
+    setText(note.querySelector('.from'), n.from);
+    setText(note.querySelector('.text'), n.text);
+    const dur = n.dur ?? 2.6;
+    const inU = Math.min(1, (t - n.t) / 0.18), outU = Math.min(1, (n.t + dur - t) / 0.18);
+    const u = Math.min(inU, outU);
+    note.style.transform = `translateY(${(1 - u) * -160}%)`;
+    note.style.visibility = 'visible';
+  } else note.style.visibility = 'hidden';
+
+  const a = activeLine(ep, t);
+  const sub = $('sub');
+  if (a) {
+    setText(sub, a.chunk.text);
+    sub.style.color = COLORS[a.line.who] || '#fff';
+    sub.classList.toggle('think', !!a.line.think);
+    sub.style.opacity = 1;
+  } else sub.style.opacity = 0;
+
+  const hook = $('hook');
+  if (hookOn && t < ep.hook.t + ep.hook.dur) {
+    setText(hook, ep.hook.text);
+    hook.style.opacity = Math.min(1, (ep.hook.t + ep.hook.dur - t) / 0.3);
+  } else hook.style.opacity = 0;
+
+  const card = activeCard(ep, t);
+  if (card) {
+    setText($('card'), card.text);
+    $('card').style.opacity = Math.min(1, (t - card.t) / 0.15, (card.t + card.dur - t) / 0.25);
+  } else $('card').style.opacity = 0;
+
+  let f = 0;
+  for (const c of ep.cuts) f = Math.max(f, 1 - Math.abs(t - c) / 0.14);
+  $('fade').style.opacity = Math.max(0, f);
+
+  const end = $('end');
+  if (ep.end && t >= ep.end.t) {
+    setText(end.querySelector('.big'), ep.end.text);
+    setText(end.querySelector('.small'), ep.end.sub);
+    end.style.opacity = Math.min(1, (t - ep.end.t) / 0.25);
+  } else end.style.opacity = 0;
+}
+
+// ---- Szene zum Zeitpunkt t
+let lastBoss = null;
+const flap = (on, t) => (on ? [1, 2, 1, 0, 2, 1][Math.floor(t * 12) % 6] : 0);
+function apply(t) {
+  const loc = step(ep.loc, t) || 'office';
+  world.setLocation(loc);
+  world.setDaylight(step(ep.daylight, t));
+  const set = world.sets[loc];
+  const [lx, ly, lz, face] = sample(ep.rig, t);
+  const eye = new THREE.Vector3(lx, ly, lz).add(set.origin);
+  const [yaw, pitch] = sample(lookKeys, t);
+  const [fov] = sample(ep.fov, t);
+  const [raise] = sample(ep.phone, t);
+  const [press] = ep.press ? sample(ep.press, t) : [0];
+  const clock = clockAt(ep, t);
+  const [hh, mm] = clock.split(':').map(Number);
+  const who = speaking(ep, t);
+
+  if (loc === 'office') {
+    office.wallClock.userData.setTime(hh, mm);
+    const mon = step(ep.monitor, t);
+    if (mon === 'gta') office.drawMonitor('gta', { countdown: countdownAt(ep, t, Math.floor(t * 1) % 60) });
+    else office.drawMonitor(mon);
+
+    // Lena
+    const [turn] = sample(ep.lena, t);
+    const lena = office.lena;
+    lena.rotation.y = Math.PI / 2 + turn * 0.35;
+    lena.userData.head.rotation.y = turn * 0.95 + Math.sin(t * 0.8) * 0.04;
+    lena.userData.head.rotation.z = Math.sin(t * 1.1) * 0.02;
+    lena.userData.armR.rotation.x = turn < 0.5 ? Math.max(0, Math.sin(t * 9)) * 0.15 : 0;
+    lena.userData.setMouth(flap(who === 'LENA', t));
+
+    // Chef
+    const [bx, bz, byaw] = sample(ep.boss, t);
+    const boss = office.boss;
+    boss.position.set(bx, 0, bz);
+    boss.rotation.y = byaw;
+    const bspeed = lastBoss && Math.abs(t - lastBoss.t) < 0.5 ? Math.hypot(bx - lastBoss.x, bz - lastBoss.z) / Math.max(1e-3, Math.abs(t - lastBoss.t)) : 0;
+    lastBoss = { x: bx, z: bz, t };
+    boss.userData.walk(t * 8, Math.min(1, bspeed / 0.6));
+    boss.userData.setMouth(flap(who === 'CHEF', t));
+    boss.userData.head.rotation.z = who === 'CHEF' ? Math.sin(t * 5) * 0.04 : 0;
+  }
+  if (loc === 'living') {
+    const mode = step(ep.tv, t);
+    set.drawTV(mode, mode === 'countdown' ? { text: countdownAt(ep, t) } : { blink: Math.floor(t * 2.5) % 2 === 0 });
+  }
+  world.update(t);
+  // Mo nickt beim Sprechen
+  if (set.mo) {
+    set.mo.userData.head.rotation.z = who === 'MO' ? Math.sin(t * 9) * 0.07 : 0;
+    if (who === 'MO') set.mo.userData.head.rotation.y = 0.3;
+  }
+
+  pov.update({
+    t, eye, pose: step(ep.pose, t) || 'sit', face, yaw, pitch, fov, raise, press,
+    hold: step(ep.hold, t) || 'phone', screen: step(ep.screen, t) || 'chat', clock,
+    shake: set.shake?.(t), mouse: loc === 'office' ? office.mouse : null,
+  });
+
+  overlays(t);
+  renderFrame();
+}
+
+// ---- Wiedergabe
+let t = +(params.get('t') || 0);
+let playing = !params.has('t') && params.get('autoplay') !== '0';
+const scrub = $('scrub');
+scrub.max = ep.duration;
+$('play').onclick = () => { playing = !playing; $('play').textContent = playing ? '❚❚' : '▶'; last = performance.now(); };
+scrub.oninput = () => { t = +scrub.value; lastBoss = null; if (!playing) apply(t); };
+$('play').textContent = playing ? '❚❚' : '▶';
+let last = performance.now();
+function loop(now) {
+  if (playing) {
+    t += (now - last) / 1000;
+    if (t > ep.duration) t = 0;
+    scrub.value = t;
+    $('time').textContent = t.toFixed(1) + ' s';
+    apply(t);
+  }
+  last = now;
+  requestAnimationFrame(loop);
+}
+apply(t);
+if (!params.has('t')) requestAnimationFrame(loop);
+
+addEventListener('resize', () => {
+  if (fixedSize) return;
+  [CW, CH] = fitStage();
+  renderer.setSize(CW, CH, false);
+  resizeRT();
+  if (!playing) apply(t);
+});
+
+window.__pov = {
+  episode: ep,
+  renderAt(time) { if (Math.abs(time - t) > 0.5) lastBoss = null; t = time; apply(time); },
+  duration: ep.duration,
+  camera, world,
+};
+window.__ready = true;
+</script>
+</body>
+</html>
